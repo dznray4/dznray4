@@ -20,11 +20,11 @@ Repositories, Check.
 
 Check ,Check ,and Check
 
-(A Bartender in a bar standing in front of a shelf outfitted with a loaded 357, 3 books and Four Shot glasses in front of him a Fully operational time-tabled Database of code.
+(A Bartender in a bar standing in front of a shelf outfitted with a loaded 357, 3 books and Four Shot glasses in front of him a Fully operational time-tabled Database of code and a plethora of stories to tell.)
 
 Somewhat like ourselves Guarding what we have and Love with what ever code of honour that we decide to live by.)
 
-[Finding Fun in what I Do, Stick Around to see the REMAINING Characters]
+[Finding Fun in what I Do, Stick Around to see the REMAINING Characters] - Darryl Hardy-Branch 
 
 <!---
 dznray4/dznray4 is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
