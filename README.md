@@ -20,6 +20,10 @@ Repositories, Check.
 
 Check ,Check ,and Check
 
+(A Bartender in a bar standing in front of a shelf outfitted with a loaded 357, 3 books and Four Shot glasses in front of him a Fully operational time-tabled Database of code.
+
+Somewhat like ourselves Guarding what we have and Love with what ever code of honour that we decide to live by.)
+
 [Finding Fun in what I Do, Stick Around to see the REMAINING Characters]
 
 <!---
