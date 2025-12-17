@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ADX — Warehouse Floor</title>
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React 18 (UMD) + Babel for JSX-in-browser -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide (non-react) icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+
+  <body class="bg-zinc-950">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      /**
+       * © 2025 Darryl Hardy-Branch — ADX Aerial Development X
+       * Standalone HTML version (React CDN + Tailwind + Lucide)
+       */
+
+      const { useEffect, useMemo, useRef, useState } = React;
+
+      /* ------------------------ Tiny UI (shadcn-like) ------------------------ */
+      const Card = ({ className = "", children }) => (
+        <div className={`rounded-2xl border ${className}`}>{children}</div>
+      );
+      const CardContent = ({ className = "", children }) => (
+        <div className={className}>{children}</div>
+      );
+
+      const Button = ({
+        className = "",
+        children,
+        onClick,
+        variant = "default",
+        size = "md",
+        ...rest
+      }) => {
+        const base =
+          "inline-flex items-center justify-center font-medium select-none transition active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none";
+        const sizes = {
+          sm: "h-7 px-3 text-xs",
+          md: "h-9 px-4 text-sm",
+        };
+        const variants = {
+          default: "",
+          secondary: "",
+        };
+        return (
+          <button
+            onClick={onClick}
+            className={`${base} ${sizes[size] || sizes.md} ${variants[variant] || ""} ${className}`}
+            {...rest}
+          >
+            {children}
+          </button>
+        );
+      };
+
+      const Input = ({ className = "", ...rest }) => (
+        <input
+          className={`w-full px-3 py-2 text-sm rounded-xl outline-none focus:ring-2 focus:ring-amber-500/40 ${className}`}
+          {...rest}
+        />
+      );
+
+      const Badge = ({ className = "", children }) => (
+        <span className={`inline-flex items-center rounded-lg px-2 py-1 text-xs ${className}`}>
+          {children}
+        </span>
+      );
+
+      const Progress = ({ value = 0, className = "" }) => (
+        <div className={`w-full rounded-full overflow-hidden ${className}`}>
+          <div className="h-full bg-amber-500/80" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+        </div>
+      );
+
+      const Switch = ({ checked, onCheckedChange }) => (
+        <button
+          type="button"
+          onClick={() => onCheckedChange && onCheckedChange(!checked)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full border border-zinc-700 transition ${
+            checked ? "bg-emerald-600/70" : "bg-zinc-800"
+          }`}
+          aria-pressed={checked}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white/90 transition ${
+              checked ? "translate-x-5" : "translate-x-1"
+            }`}
+          />
+        </button>
+      );
+
+      // Slider (single-thumb)
+      const Slider = ({ value = [0], onValueChange, max = 100 }) => {
+        const v = Array.isArray(value) ? value[0] : value;
+        return (
+          <input
+            type="range"
+            min="0"
+            max={max}
+            value={v}
+            onChange={(e) => onValueChange && onValueChange([Number(e.target.value)])}
+            className="w-full accent-amber-500"
+          />
+        );
+      };
+
+      const L = ({ name, className = "" }) => (
+        <i data-lucide={name} className={className}></i>
+      );
+
+      /* ------------------------ Stations & Types ------------------------ */
+      const DEFAULT_STATIONS = [
+        { id: "rec", name: "Receiving", icon: "box" },
+        { id: "cut", name: "Cutting / Prep", icon: "wrench" },
+        { id: "frame", name: "Framing", icon: "building-2" },
+        { id: "plumb", name: "Plumbing", icon: "gauge" },
+        { id: "elec", name: "Electrical", icon: "bolt" },
+        { id: "hvac", name: "HVAC", icon: "fan" },
+        { id: "insul", name: "Insulation", icon: "shield-check" },
+        { id: "int", name: "Interior Finish", icon: "lightbulb" },
+        { id: "ext", name: "Exterior Finish", icon: "sun" },
+        { id: "qa", name: "QA / Inspect", icon: "hard-hat" },
+        { id: "dock", name: "Shipping Dock", icon: "door-open" },
+      ];
+
+      /* ------------------------ Compliance Types ------------------------ */
+      // Keeping "modular" internal key as you wrote, but UI labels can say "Commercial" if you prefer.
+      // projectType: "housing" | "modular"
+      // cycle: "pre2026" | "post2026"
+
+      function addMonths(d, months) {
+        const dt = new Date(d);
+        dt.setMonth(dt.getMonth() + months);
+        return dt;
+      }
+
+      function formatMMMYYYY(d) {
+        return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+      }
+
+      function computeCompliance(p) {
+        if (p.cycle === "post2026") return { ...p, status: "compliant" };
+
+        const base = new Date(p.approvalDate);
+        const months = p.projectType === "housing" ? 36 : 15;
+        const expires = addMonths(base, months);
+        const now = new Date();
+
+        const monthsLeft = Math.max(
+          0,
+          Math.round((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30))
+        );
+
+        const status = expires < now ? "expired" : monthsLeft < 6 ? "expiring" : "valid";
+        return { ...p, expiresAt: expires.toISOString(), monthsLeft, status };
+      }
+
+      function badgeTone(status) {
+        switch (status) {
+          case "valid":
+          case "compliant":
+            return "bg-emerald-600 text-white";
+          case "expiring":
+            return "bg-amber-600 text-white";
+          case "expired":
+            return "bg-rose-600 text-white";
+          default:
+            return "bg-zinc-700 text-white";
+        }
+      }
+
+      function statusLabel(p) {
+        if (p.cycle === "post2026") return "CBSC 2026+ — Compliant";
+        if (p.status === "expired") return "Expired";
+        if (p.status === "expiring") return `Expires in ${p.monthsLeft}m`;
+        return "Valid";
+      }
+
+      /* ------------------------ Seed state ------------------------ */
+      const seedState = () => {
+        const out = {};
+        DEFAULT_STATIONS.forEach((s, i) => {
+          out[s.id] = {
+            power: i !== 0,
+            lux: [0, 40, 60, 75, 90][i % 5],
+            fan: [0, 30, 50, 70, 90][(i + 2) % 5],
+            locked: false,
+            alert: false,
+            crew: (i % 3) + 2,
+            oee: 80 - (i % 4) * 5,
+            wip: (i % 5) + 1,
+          };
+        });
+        return out;
+      };
+
+      function tileColor(active, warn) {
+        if (warn) return "bg-amber-500/30 ring-2 ring-amber-400";
+        if (active) return "bg-amber-500/20";
+        return "bg-zinc-800/70";
+      }
+
+      /* ------------------------ Header bits ------------------------ */
+      const ADXBrand = () => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full border border-amber-400 grid place-content-center">
+            <div className="h-2 w-2 rounded-full bg-amber-400" />
+          </div>
+          <div className="leading-tight">
+            <div className="text-amber-400 tracking-widest text-xs">AERIAL DEVELOPMENT X</div>
+            <div className="text-white font-semibold text-lg">ADX — Warehouse Floor</div>
+          </div>
+        </div>
+      );
+
+      const NowClock = () => {
+        const [now, setNow] = useState(new Date());
+        useEffect(() => {
+          const t = setInterval(() => setNow(new Date()), 1000);
+          return () => clearInterval(t);
+        }, []);
+        const hh = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const date = now.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+        return (
+          <div className="text-right">
+            <div className="text-3xl font-bold text-white">{hh}</div>
+            <div className="text-sm text-zinc-400">{date}</div>
+          </div>
+        );
+      };
+
+      const WeatherMini = () => (
+        <div className="flex items-center gap-3">
+          <L name="cloud" className="h-6 w-6 text-zinc-300" />
+          <div>
+            <div className="text-sm text-white">Overcast</div>
+            <div className="text-xs text-zinc-400">68°F · Light wind</div>
+          </div>
+        </div>
+      );
+
+      const KPI = ({ label, value, icon, sub }) => (
+        <Card className="bg-zinc-900/70 border-zinc-700 rounded-2xl">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-2 rounded-xl bg-zinc-800">
+              <L name={icon} className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="leading-tight">
+              <div className="text-zinc-400 text-xs">{label}</div>
+              <div className="text-white text-xl font-semibold">{value}</div>
+              {sub && <div className="text-zinc-500 text-[11px]">{sub}</div>}
+            </div>
+          </CardContent>
+        </Card>
+      );
+
+      /* ------------------------ Station tile ------------------------ */
+      const StationTile = ({
+        station,
+        value,
+        onChange,
+        timer,
+        onTimerStart,
+        onTimerStop,
+        crewHere,
+        activeProject,
+      }) => {
+        const pct = (() => {
+          if (!timer?.startedAt) return 0;
+          const elapsedMin = (Date.now() - (timer.startedAt || 0)) / 60000;
+          return Math.min(100, (elapsedMin / Math.max(1, timer.targetMins)) * 100);
+        })();
+
+        const showBadge = !!activeProject;
+        const badgeText = activeProject
+          ? `${activeProject.label}${
+              activeProject.cycle === "pre2026" && activeProject.expiresAt
+                ? ` — Expires: ${formatMMMYYYY(new Date(activeProject.expiresAt))}`
+                : " — CBSC 2026+"
+            }`
+          : "";
+
+        return (
+          <div className={`rounded-2xl p-3 md:p-4 border border-zinc-700 shadow-inner ${tileColor(value.power, value.alert)}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <L name={station.icon} className="h-5 w-5 text-zinc-300" />
+                <div className="text-sm font-medium text-white">{station.name}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {value.locked ? (
+                  <L name="lock" className="h-4 w-4 text-zinc-400" />
+                ) : (
+                  <L name="lock-open" className="h-4 w-4 text-zinc-400" />
+                )}
+                {value.alert ? (
+                  <L name="alert-triangle" className="h-4 w-4 text-amber-400" />
+                ) : (
+                  <L name="check-circle-2" className="h-4 w-4 text-emerald-400" />
+                )}
+              </div>
+            </div>
+
+            {showBadge && (
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span className={`px-2 py-0.5 rounded-md ${badgeTone(activeProject.status)}`}>
+                  <span className="inline-flex items-center gap-1">
+                    <L name="badge-check" className="h-3.5 w-3.5" /> {badgeText}
+                  </span>
+                </span>
+                <span className="text-zinc-400">{statusLabel(activeProject)}</span>
+              </div>
+            )}
+
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <div className="text-xs text-zinc-400">Power</div>
+                <Switch checked={value.power} onCheckedChange={(b) => onChange && onChange({ power: b })} />
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs text-zinc-400">Lights</div>
+                <Slider value={[value.lux]} onValueChange={(v) => onChange && onChange({ lux: v[0] })} max={100} />
+                <div className="text-xs text-zinc-400">{value.lux}%</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs text-zinc-400">Fans</div>
+                <Slider value={[value.fan]} onValueChange={(v) => onChange && onChange({ fan: v[0] })} max={100} />
+                <div className="text-xs text-zinc-400">{value.fan}%</div>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <Progress value={pct} className="h-1 bg-zinc-800" />
+              <div className="mt-2 flex items-center justify-between text-xs text-zinc-400">
+                <div>{timer?.startedAt ? <span>Running · Target {timer.targetMins}m</span> : <span>Idle</span>}</div>
+                <div className="flex items-center gap-2">
+                  {!timer?.startedAt ? (
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-lg bg-zinc-700 hover:bg-zinc-600"
+                      onClick={() => onTimerStart && onTimerStart(45)}
+                    >
+                      Start 45m
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-lg bg-zinc-700 hover:bg-zinc-600"
+                      onClick={onTimerStop}
+                    >
+                      Stop
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <L name="users" className="h-3.5 w-3.5" /> {crewHere} on post
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-zinc-700/80 text-zinc-200">OEE {value.oee}%</Badge>
+                <Badge className="bg-zinc-700/80 text-zinc-200">WIP {value.wip}</Badge>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      /* ------------------------ Main ------------------------ */
+      function ADXSplash() {
+        const [stations, setStations] = useState(seedState);
+        const [timers, setTimers] = useState({});
+        const [query, setQuery] = useState("");
+        const [muted, setMuted] = useState(false);
+        const [mapMode, setMapMode] = useState("grid");
+
+        const [employees, setEmployees] = useState([
+          { id: "1001", name: "Alex", role: "Assembler", onFloor: true, stationId: "frame", clockEvents: [] },
+          { id: "1002", name: "Bri", role: "QC", onFloor: true, stationId: "qa", clockEvents: [] },
+        ]);
+
+        const [projects, setProjects] = useState([
+          { id: "p22", label: "2022 Plan", projectType: "housing", cycle: "pre2026", approvalDate: "2022-03-15" },
+          { id: "p25", label: "2025 Plan", projectType: "modular", cycle: "pre2026", approvalDate: "2025-01-10" },
+          { id: "p27", label: "2027 Plan", projectType: "housing", cycle: "post2026", approvalDate: "2027-02-01" },
+        ]);
+
+        const derived = useMemo(() => projects.map(computeCompliance), [projects]);
+        const [activeProjectId, setActiveProjectId] = useState(projects[0]?.id || "");
+        const activeProject = useMemo(
+          () => derived.find((p) => p.id === activeProjectId) || null,
+          [derived, activeProjectId]
+        );
+
+        const [clockOpen, setClockOpen] = useState(false);
+        const [clockName, setClockName] = useState("");
+        const [clockStation, setClockStation] = useState(DEFAULT_STATIONS[0].id);
+
+        const [projOpen, setProjOpen] = useState(false);
+        const [projLabel, setProjLabel] = useState("");
+        const [projApproval, setProjApproval] = useState("");
+        const [projType, setProjType] = useState("housing");
+        const [projCycle, setProjCycle] = useState("pre2026");
+
+        const clockIn = () => {
+          const id = Math.random().toString(36).slice(2, 8);
+          setEmployees((e) => [
+            ...e,
+            {
+              id,
+              name: clockName || `Worker ${id}`,
+              role: "Crew",
+              onFloor: true,
+              stationId: clockStation,
+              clockEvents: [{ t: Date.now(), type: "in" }],
+            },
+          ]);
+          setClockOpen(false);
+          setClockName("");
+        };
+
+        const clockOutAll = () =>
+          setEmployees((e) =>
+            e.map((x) => ({
+              ...x,
+              onFloor: false,
+              stationId: undefined,
+              clockEvents: [...x.clockEvents, { t: Date.now(), type: "out" }],
+            }))
+          );
+
+        const addProject = () => {
+          if (!projLabel || !projApproval) return;
+          const id = Math.random().toString(36).slice(2, 8);
+          setProjects((p) => [...p, { id, label: projLabel, projectType: projType, cycle: projCycle, approvalDate: projApproval }]);
+          setProjOpen(false);
+          setProjLabel("");
+          setProjApproval("");
+        };
+
+        const audioRef = useRef(null);
+        const [playlist] = useState(["/media/track1.mp3", "/media/track2.mp3"]);
+        const [track, setTrack] = useState(0);
+        const play = () => audioRef.current && audioRef.current.play();
+        const pause = () => audioRef.current && audioRef.current.pause();
+        const next = () => setTrack((i) => (i + 1) % playlist.length);
+
+        useEffect(() => {
+          if (audioRef.current) audioRef.current.volume = muted ? 0 : 0.6;
+        }, [muted, track]);
+
+        const totals = useMemo(() => {
+          const list = Object.values(stations);
+          const powered = list.filter((s) => s.power).length;
+          const crew = employees.filter((e) => e.onFloor).length;
+          const wip = list.reduce((a, b) => a + b.wip, 0);
+          return { powered, crew, wip };
+        }, [stations, employees]);
+
+        const filtered = useMemo(() => {
+          if (!query.trim()) return DEFAULT_STATIONS;
+          return DEFAULT_STATIONS.filter((s) => s.name.toLowerCase().includes(query.toLowerCase()));
+        }, [query]);
+
+        const applyToAll = (upd) => {
+          setStations((old) => {
+            const next = { ...old };
+            Object.keys(next).forEach((k) => (next[k] = { ...next[k], ...upd }));
+            return next;
+          });
+        };
+
+        const triggerScene = (which) => {
+          if (which === "start") {
+            applyToAll({ power: true, lux: 70, fan: 40, alert: false });
+          } else if (which === "lunch") {
+            applyToAll({ lux: 30, fan: 20 });
+          } else if (which === "evac") {
+            applyToAll({ power: false, lux: 0, fan: 0, alert: true });
+            pause();
+          } else if (which === "alloff") {
+            applyToAll({ power: false, lux: 0, fan: 0, alert: false });
+            pause();
+          }
+        };
+
+        const percentFor = (id) => {
+          const tt = timers[id];
+          if (!tt?.startedAt) return 0;
+          const elapsedMin = (Date.now() - tt.startedAt) / 60000;
+          return Math.min(100, (elapsedMin / Math.max(1, tt.targetMins)) * 100);
+        };
+
+        const compCounts = useMemo(() => {
+          const d = derived;
+          return {
+            valid: d.filter((x) => x.status === "valid" || x.status === "compliant").length,
+            expiring: d.filter((x) => x.status === "expiring").length,
+            expired: d.filter((x) => x.status === "expired").length,
+          };
+        }, [derived]);
+
+        const alerts = useMemo(() => derived.filter((x) => x.status === "expiring" || x.status === "expired"), [derived]);
+
+        // Re-create lucide icons after every render that changes DOM
+        useEffect(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+
+        return (
+          <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <ADXBrand />
+              <div className="hidden md:flex items-center gap-6">
+                <WeatherMini />
+                <div className="h-10 w-px bg-zinc-800" />
+                <div className="flex items-center gap-2 text-sm text-zinc-300">
+                  <L name="bell" className="h-4 w-4" /> Alerts
+                  <Badge className={`${alerts.length ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                    {alerts.length}
+                  </Badge>
+                </div>
+                <div className="h-10 w-px bg-zinc-800" />
+                <NowClock />
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
+              <KPI label="Orders in Queue" value={`${totals.wip}`} icon="box" sub="Current WIP" />
+              <KPI label="Stations Online" value={`${totals.powered}/${DEFAULT_STATIONS.length}`} icon="factory" sub="Power state" />
+              <KPI label="Crew On Floor" value={`${totals.crew}`} icon="users" sub="Clocked in" />
+              <KPI label="Energy Load" value="72%" icon="battery-charging" sub="Realtime draw" />
+              <KPI
+                label="Compliance Status"
+                value={`${compCounts.valid} valid / ${compCounts.expiring} expiring / ${compCounts.expired} expired`}
+                icon="calendar-clock"
+                sub="Code cycle"
+              />
+            </div>
+
+            <div className="mt-4 flex flex-col md:flex-row gap-3 items-stretch">
+              {/* Stations Grid */}
+              <div className="flex-1 rounded-2xl bg-zinc-900/50 border border-zinc-800 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <L name="layout-grid" className="h-4 w-4 text-zinc-400" />
+                    <div className="text-sm text-zinc-300">Stations</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Search station…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-xl h-8 py-1"
+                    />
+                    <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-500 gap-2 h-8" onClick={() => setClockOpen(true)}>
+                      <L name="user-plus" className="h-4 w-4" /> Clock-In
+                    </Button>
+                    <Button variant="secondary" className="rounded-xl h-8 bg-zinc-800 hover:bg-zinc-700" onClick={clockOutAll}>
+                      Clock-Out All
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {filtered.map((s) => {
+                    const crewHere = employees.filter((e) => e.onFloor && e.stationId === s.id).length;
+                    return (
+                      <StationTile
+                        key={s.id}
+                        station={s}
+                        value={stations[s.id]}
+                        crewHere={crewHere}
+                        timer={timers[s.id]}
+                        activeProject={activeProject}
+                        onTimerStart={(mins) => setTimers((t) => ({ ...t, [s.id]: { startedAt: Date.now(), targetMins: mins } }))}
+                        onTimerStop={() => setTimers((t) => ({ ...t, [s.id]: { ...t[s.id], startedAt: undefined } }))}
+                        onChange={(upd) => setStations((old) => ({ ...old, [s.id]: { ...old[s.id], ...upd } }))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right column */}
+              <div className="w-full md:w-80 shrink-0 grid gap-3">
+                {/* Scenes */}
+                <Card className="bg-zinc-900/70 border-zinc-800 rounded-2xl">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="text-sm text-zinc-300 flex items-center gap-2">
+                      <L name="siren" className="h-4 w-4 text-amber-400" /> Scenes
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-500" onClick={() => triggerScene("start")}>
+                        <L name="play" className="h-4 w-4 mr-2" /> Start Shift
+                      </Button>
+                      <Button className="rounded-xl bg-amber-600 hover:bg-amber-500" onClick={() => triggerScene("lunch")}>
+                        <L name="pause" className="h-4 w-4 mr-2" /> Lunch
+                      </Button>
+                      <Button className="rounded-xl bg-rose-600 hover:bg-rose-500" onClick={() => triggerScene("evac")}>
+                        <L name="alert-triangle" className="h-4 w-4 mr-2" /> Evacuate
+                      </Button>
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={() => triggerScene("alloff")}>
+                        <L name="power" className="h-4 w-4 mr-2" /> All Off
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Projects Selector */}
+                <Card className="bg-zinc-900/70 border-zinc-800 rounded-2xl">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="text-sm text-zinc-300 flex items-center gap-2">
+                      <L name="badge-check" className="h-4 w-4 text-amber-400" /> Code Cycle / Projects
+                    </div>
+                    <div className="space-y-2 max-h-44 overflow-auto">
+                      {derived.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setActiveProjectId(p.id)}
+                          className={`w-full text-left rounded-lg border px-3 py-2 text-xs ${
+                            activeProjectId === p.id
+                              ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                              : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">{p.label}{p.unitId ? ` — ${p.unitId}` : ""}</span>
+                            <span className={`px-1.5 py-0.5 rounded ${badgeTone(p.status)}`}>{statusLabel(p)}</span>
+                          </div>
+                          {p.cycle === "pre2026" && p.expiresAt && (
+                            <div className="text-[10px] text-zinc-400 mt-0.5">Expires {formatMMMYYYY(new Date(p.expiresAt))}</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-500" onClick={() => setProjOpen(true)}>
+                        Add Project
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Compliance Alerts */}
+                <Card className="bg-zinc-900/70 border-zinc-800 rounded-2xl">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="text-sm text-zinc-300 flex items-center gap-2">
+                      <L name="alert-triangle" className="h-4 w-4 text-amber-400" /> Compliance Alerts
+                    </div>
+                    {alerts.length === 0 ? (
+                      <div className="text-xs text-emerald-300">All clear — no expiring plans.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {alerts.map((a) => (
+                          <div key={a.id} className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium">{a.label}</div>
+                              <span className="inline-flex items-center gap-1 text-amber-200">
+                                <L name="link" className="h-3.5 w-3.5" /> Details
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-amber-200/90">
+                              {a.status === "expired" ? "Expired" : `Expires ${a.monthsLeft}m`}
+                              {a.expiresAt ? ` · ${formatMMMYYYY(new Date(a.expiresAt))}` : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Floor Map */}
+                <Card className="bg-zinc-900/70 border-zinc-800 rounded-2xl">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-zinc-300 flex items-center gap-2">
+                        <L name="map-pin" className="h-4 w-4 text-amber-400" /> {mapMode === "plan" ? "Floor Plan" : "Tile Map"}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          className={`h-7 px-3 rounded-lg ${mapMode === "grid" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-300"}`}
+                          onClick={() => setMapMode("grid")}
+                        >
+                          Treemap
+                        </Button>
+                        <Button
+                          className={`h-7 px-3 rounded-lg ${mapMode === "plan" ? "bg-amber-600 text-white" : "bg-zinc-800 text-zinc-300"}`}
+                          onClick={() => setMapMode("plan")}
+                        >
+                          Floor Plan
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-zinc-800 p-2 grid place-items-center text-xs text-zinc-400">
+                      <div>Map preview (unchanged for brevity)</div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Music */}
+                <Card className="bg-zinc-900/70 border-zinc-800 rounded-2xl">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="text-sm text-zinc-300 flex items-center gap-2">
+                      <L name="speaker" className="h-4 w-4 text-amber-400" /> Floor Music
+                    </div>
+                    <audio ref={audioRef} src={playlist[track]} />
+                    <div className="flex items-center gap-2">
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={play}>
+                        <L name="play" className="h-4 w-4" />
+                      </Button>
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={pause}>
+                        <L name="pause" className="h-4 w-4" />
+                      </Button>
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={next}>
+                        <L name="skip-forward" className="h-4 w-4" />
+                      </Button>
+                      <div className="ml-auto flex items-center gap-2 text-xs text-zinc-400">
+                        {muted ? <L name="volume-x" className="h-4 w-4" /> : <L name="volume-2" className="h-4 w-4" />}
+                        Mute
+                        <Switch checked={muted} onCheckedChange={setMuted} />
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-zinc-500">
+                      Put your audio files at <span className="text-zinc-300">/media/track1.mp3</span> and{" "}
+                      <span className="text-zinc-300">/media/track2.mp3</span> (or edit the playlist array).
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Modals */}
+            {clockOpen && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-50">
+                <div className="w-[92vw] max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-4">
+                  <div className="text-sm text-zinc-300 mb-3 flex items-center gap-2">
+                    <L name="user-plus" className="h-4 w-4 text-amber-400" /> Clock-In
+                  </div>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Name (optional)"
+                      value={clockName}
+                      onChange={(e) => setClockName(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-100"
+                    />
+                    <div className="text-xs text-zinc-400">Assign starting station</div>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto">
+                      {DEFAULT_STATIONS.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => setClockStation(s.id)}
+                          className={`text-left rounded-xl border px-3 py-2 text-xs ${
+                            clockStation === s.id
+                              ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                              : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={() => setClockOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-500" onClick={clockIn}>
+                        Clock-In
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {projOpen && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-50">
+                <div className="w-[92vw] max-w-md rounded-2xl bg-zinc-900 border border-zinc-700 p-4">
+                  <div className="text-sm text-zinc-300 mb-3 flex items-center gap-2">
+                    <L name="badge-check" className="h-4 w-4 text-amber-400" /> Add Project
+                  </div>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Label (e.g., 2022 Plan)"
+                      value={projLabel}
+                      onChange={(e) => setProjLabel(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-100"
+                    />
+                    <div className="text-xs text-zinc-400">Approval Date</div>
+                    <Input
+                      type="date"
+                      value={projApproval}
+                      onChange={(e) => setProjApproval(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-100"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setProjType("housing")}
+                        className={`rounded-xl border px-3 py-2 text-xs ${
+                          projType === "housing"
+                            ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                        }`}
+                      >
+                        Housing (36m)
+                      </button>
+                      <button
+                        onClick={() => setProjType("modular")}
+                        className={`rounded-xl border px-3 py-2 text-xs ${
+                          projType === "modular"
+                            ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                        }`}
+                      >
+                        Commercial (15m)
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setProjCycle("pre2026")}
+                        className={`rounded-xl border px-3 py-2 text-xs ${
+                          projCycle === "pre2026"
+                            ? "border-amber-400 bg-amber-500/10 text-amber-200"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                        }`}
+                      >
+                        Pre-2026 Code
+                      </button>
+                      <button
+                        onClick={() => setProjCycle("post2026")}
+                        className={`rounded-xl border px-3 py-2 text-xs ${
+                          projCycle === "post2026"
+                            ? "border-emerald-400 bg-emerald-500/10 text-emerald-200"
+                            : "border-zinc-700 bg-zinc-800 text-zinc-300"
+                        }`}
+                      >
+                        Post-2026 CBSC
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <Button className="rounded-xl bg-zinc-800 hover:bg-zinc-700" onClick={() => setProjOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-500" onClick={addProject}>
+                        Save Project
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <L name="shield-check" className="h-3.5 w-3.5" /> Safety: <span className="text-emerald-400">Good</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <L name="thermometer" className="h-3.5 w-3.5" /> Temp: 77°F
+                </div>
+                <div className="flex items-center gap-1">
+                  <L name="flame" className="h-3.5 w-3.5" /> Utilities: 72% load
+                </div>
+              </div>
+              <div className="opacity-70">© {new Date().getFullYear()} Darryl Hardy-Branch — ADX</div>
+            </div>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<ADXSplash />);
+    </script>
+  </body>
+</html>
