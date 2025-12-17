@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ADX Splash Suite – Live Cards Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-deep: #020617;
+      --bg-panel: #050816;
+      --bg-panel-soft: #0b1120;
+      --accent-amber: #fbb824;
+      --accent-teal: #1c496c;
+      --accent-plum: #5f0f40;
+      --text-soft: #9ca3af;
+      --text-main: #e5e7eb;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, var(--accent-amber) 0, var(--accent-teal) 40%, #050816 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+    }
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      padding: 12px 18px;
+      background: linear-gradient(90deg, #020617, var(--accent-teal), var(--accent-plum));
+      box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, var(--accent-amber), var(--accent-teal));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+    .brand-text h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .brand-text p {
+      font-size: 11px;
+      color: var(--text-main);
+      opacity: 0.78;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .nav-btn {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 11px;
+      border: 1px solid rgba(148,163,184,0.7);
+      background: rgba(15,23,42,0.75);
+      color: var(--text-main);
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nav-btn.active {
+      border-color: var(--accent-amber);
+      background: rgba(251,184,36,0.18);
+      color: #fde68a;
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.6);
+    }
+    main {
+      flex: 1;
+      padding: 18px 12px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .screen-frame {
+      width: 100%;
+      max-width: 1200px;
+      border-radius: 24px;
+      background: radial-gradient(circle at top, #020617, #020617 60%, #050816 100%);
+      border: 1px solid rgba(148,163,184,0.45);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.9);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .screen-caption {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 11px;
+      color: var(--text-soft);
+      padding: 2px 4px 4px;
+    }
+    .screen-caption span.title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    .screen-caption span.meta {
+      font-size: 10px;
+    }
+    .screen {
+      display: none;
+    }
+    .screen.active {
+      display: block;
+    }
+
+    /* WAREHOUSE LAYOUT */
+    .warehouse-layout {
+      display: grid;
+      grid-template-columns: 3fr 1.6fr;
+      gap: 12px;
+    }
+    .top-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .chip-card {
+      background: radial-gradient(circle at top, #020617, #020617 65%, #000000 100%);
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.4);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .chip-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-soft);
+    }
+    .chip-value {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .chip-meta {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+    .chip-pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      margin-left: auto;
+    }
+
+    .stations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .station-card {
+      background: radial-gradient(circle at top left, rgba(248,250,252,0.05), #020617 60%, #000 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,0.45);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .station-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .station-name {
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .status-pill {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .status-pill.idle {
+      border-color: #f97316;
+      color: #fed7aa;
+    }
+    .status-pill.running {
+      border-color: var(--success);
+      color: #bbf7d0;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      gap: 4px;
+    }
+    .slider-row span.label {
+      width: 46px;
+      color: var(--text-soft);
+    }
+    .slider-row span.value {
+      width: 32px;
+      text-align: right;
+      color: #e5e7eb;
+    }
+    .slider-row input[type=range] {
+      flex: 1;
+      accent-color: var(--accent-amber);
+    }
+    .station-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      margin-top: 2px;
+    }
+    .small-btn {
+      padding: 4px 8px;
+      font-size: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(15,23,42,0.8);
+      cursor: pointer;
+    }
+    .small-btn.primary {
+      border-color: var(--accent-amber);
+      background: rgba(251,184,36,0.18);
+      color: #fde68a;
+    }
+
+    /* Right column widgets */
+    .right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .widget-card {
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.8), #020617 60%, #000 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,0.45);
+      padding: 10px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .widget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .widget-header h3 {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .widget-header span.meta {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+    .scene-buttons {
+      display: grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .scene-btn {
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: none;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .scene-btn.start { background: var(--success); color: #022c22; }
+    .scene-btn.lunch { background: #22d3ee; color: #022c22; }
+    .scene-btn.evacuate { background: var(--danger); color: #fee2e2; }
+    .scene-btn.off { background: #4b5563; color: #e5e7eb; }
+
+    .treemap {
+      border-radius: 12px;
+      background: radial-gradient(circle at top, #020617, #020617 70%, #000 100%);
+      border: 1px solid rgba(55,65,81,0.9);
+      padding: 6px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      grid-auto-rows: 40px;
+      gap: 4px;
+      font-size: 9px;
+    }
+    .treemap-tile {
+      border-radius: 6px;
+      border: 1px solid rgba(148,163,184,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2px;
+      background: rgba(15,23,42,0.9);
+    }
+    .treemap-tile.active {
+      background: rgba(251,184,36,0.15);
+      border-color: var(--accent-amber);
+      color: #fde68a;
+    }
+
+    .music-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .music-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(15,23,42,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .timeline {
+      margin-top: 4px;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #111827;
+      overflow: hidden;
+    }
+    .timeline-fill {
+      height: 100%;
+      width: 62%;
+      background: linear-gradient(90deg, var(--accent-amber), #22c55e);
+    }
+
+    /* HOUSING PIPELINE */
+    .housing-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(0, 2fr);
+      gap: 12px;
+    }
+    .section-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .tag-pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+    }
+    .tag-pill.primary {
+      border-color: var(--accent-amber);
+      color: #fde68a;
+      background: rgba(251,184,36,0.18);
+    }
+    .family-card {
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617 70%);
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,0.45);
+      padding: 10px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .family-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .family-name {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .family-badge {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: radial-gradient(circle at top, #f59e0b, #b45309);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pipeline-pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(56,189,248,0.8);
+      color: #7dd3fc;
+    }
+    .step-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 10px;
+    }
+    .step-chip {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(148,163,184,0.6);
+    }
+    .pathway {
+      background: radial-gradient(circle at top, #020617, #020617 70%, #000 100%);
+      border-radius: 18px;
+      border: 1px solid rgba(55,65,81,0.9);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .pathway-steps {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .path-step {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .path-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid #22c55e;
+      background: #052e16;
+    }
+    .path-dot.pending {
+      border-color: #6b7280;
+      background: #020617;
+    }
+    .path-label {
+      font-size: 10px;
+    }
+    .issues-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .issue-card {
+      border-radius: 12px;
+      padding: 8px;
+      font-size: 11px;
+      border: 1px solid rgba(248,113,113,0.7);
+      background: radial-gradient(circle at top left, rgba(127,29,29,0.9), #111827 70%);
+    }
+    .issue-card.medium {
+      border-color: rgba(234,179,8,0.9);
+      background: radial-gradient(circle at top left, rgba(113,63,18,0.9), #111827 70%);
+    }
+    .issue-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .action-btn {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.8);
+      background: rgba(15,23,42,0.9);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .action-btn.primary {
+      border-color: #22c55e;
+      background: rgba(34,197,94,0.16);
+      color: #bbf7d0;
+    }
+    .action-btn.alt {
+      border-color: var(--accent-plum);
+      background: rgba(95,15,64,0.5);
+    }
+
+    footer {
+      text-align: center;
+      padding: 8px 12px 14px;
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
+    @media (max-width: 900px) {
+      .warehouse-layout,
+      .housing-layout {
+        grid-template-columns: minmax(0,1fr);
+      }
+    }
+    @media (max-width: 768px) {
+      .screen-frame {
+        border-radius: 0;
+        max-width: 100%;
+        box-shadow: none;
+        border-left: none;
+        border-right: none;
+      }
+    }
+
+    /* GROUND TO GALAXY – PHONE CARD */
+    .gtg-shell {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0 4px;
+    }
+    .gtg-phone {
+      width: 360px;
+      max-width: 100%;
+      border-radius: 24px;
+      background: #fdf4e3;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+      padding: 12px 10px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow-y: auto;
+      max-height: 640px;
+    }
+    .gtg-header-card {
+      border-radius: 18px;
+      background: linear-gradient(145deg, #1c496c, #06b6d4, #f97316);
+      color: #ffffff;
+      padding: 16px 14px;
+      margin-bottom: 4px;
+    }
+    .gtg-header-card h2 {
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .gtg-header-card p {
+      font-size: 11px;
+      line-height: 1.4;
+      opacity: 0.95;
+      margin-bottom: 10px;
+    }
+    .gtg-search-row {
+      display: flex;
+      gap: 6px;
+    }
+    .gtg-search-row input {
+      flex: 1;
+      padding: 7px 8px;
+      border-radius: 999px;
+      border: none;
+      font-size: 11px;
+    }
+    .gtg-search-row button {
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: none;
+      background: #f97316;
+      color: #fff;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .gtg-modules-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gtg-module-card {
+      border-radius: 18px;
+      background: #ffffff;
+      padding: 10px 10px 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+      font-size: 11px;
+    }
+    .gtg-module-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: #0284c7;
+      margin-bottom: 2px;
+    }
+    .gtg-module-subtitle {
+      font-size: 11px;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .gtg-module-body {
+      font-size: 11px;
+      color: #4b5563;
+      margin-bottom: 6px;
+    }
+    .gtg-progress-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .gtg-progress-fill {
+      height: 100%;
+      width: 18%;
+      background: #f97316;
+    }
+    .gtg-module-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .gtg-preview-btn {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: none;
+      background: #f97316;
+      color: #fff;
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .gtg-preview-btn span.icon {
+      font-size: 12px;
+    }
+    .gtg-lock-pill {
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 10px;
+      border: 1px solid #9ca3af;
+      color: #6b7280;
+    }
+    .gtg-empty {
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+      padding: 6px 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="title-row">
+        <div class="brand">
+          <div class="brand-logo">ADX</div>
+          <div class="brand-text">
+            <h1>Dashboard Splash Suite</h1>
+            <p>Warehouse Floor · Compliance · Housing Pipeline (live HTML prototype)</p>
+          </div>
+        </div>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-btn active" data-target="screen-warehouse">Warehouse Floor</button>
+        <button class="nav-btn" data-target="screen-alt">Warehouse Floor – Alt View</button>
+        <button class="nav-btn" data-target="screen-compliance">Compliance Overview</button>
+        <button class="nav-btn" data-target="screen-housing">Housing Move-In Pipeline</button>
+        <!-- NEW: Ground to Galaxy -->
+        <button class="nav-btn" data-target="screen-gtg">Ground to Galaxy</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="screen-frame">
+
+        <!-- WAREHOUSE MAIN -->
+        <section id="screen-warehouse" class="screen active">
+          <div class="screen-caption">
+            <span class="title">ADX — Warehouse Floor · Live Ops</span>
+            <span class="meta">Static data, interactive cards & sliders</span>
+          </div>
+
+          <div class="warehouse-layout">
+            <div>
+              <div class="top-row">
+                <div class="chip-card">
+                  <div class="chip-label">Orders in Queue</div>
+                  <div class="chip-value">
+                    <span id="orders-count">31</span>
+                    <span class="chip-meta">Current WIP</span>
+                  </div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">Stations Online</div>
+                  <div class="chip-value">
+                    <span id="stations-online">10</span>/<span>11</span>
+                  </div>
+                  <div class="chip-meta">Power state</div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">Crew on Floor</div>
+                  <div class="chip-value">
+                    <span id="crew-count">2</span>
+                  </div>
+                  <div class="chip-meta">Clocked in</div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">Energy Load</div>
+                  <div class="chip-value">
+                    <span id="energy-load">72</span><span>%</span>
+                  </div>
+                  <div class="chip-meta">Realtime draw</div>
+                </div>
+              </div>
+
+              <div class="stations-grid" id="stations-grid">
+                <!-- Cards will be injected by JS -->
+              </div>
+            </div>
+
+            <div class="right-column">
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Scenes</h3>
+                  <span class="meta" id="scene-label">Scene: Idle</span>
+                </div>
+                <div class="scene-buttons">
+                  <button class="scene-btn start" data-scene="Start Shift">Start Shift</button>
+                  <button class="scene-btn lunch" data-scene="Lunch">Lunch</button>
+                  <button class="scene-btn evacuate" data-scene="Evacuate">Evacuate</button>
+                  <button class="scene-btn off" data-scene="All Off">All Off</button>
+                </div>
+              </div>
+
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Tool Lift (VLM)</h3>
+                  <span class="meta">Bay 13 · Queue: <span id="tool-queue">3</span></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;">
+                  <span>State: <strong id="tool-state">MOVING</strong></span>
+                  <span>Door: Locked</span>
+                </div>
+                <div class="timeline" style="margin-top:8px;">
+                  <div class="timeline-fill" id="tool-progress"></div>
+                </div>
+              </div>
+
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Tile Map</h3>
+                  <span class="meta">Treemap · Active: 10 / 11</span>
+                </div>
+                <div class="treemap">
+                  <div class="treemap-tile active">Receiving</div>
+                  <div class="treemap-tile active">Cutting / Prep</div>
+                  <div class="treemap-tile active">Framing</div>
+                  <div class="treemap-tile active">Plumbing</div>
+                  <div class="treemap-tile">Electrical</div>
+                  <div class="treemap-tile active">HVAC</div>
+                  <div class="treemap-tile active">Insulation</div>
+                  <div class="treemap-tile active">Interior Finish</div>
+                  <div class="treemap-tile active">QA / Inspect</div>
+                  <div class="treemap-tile active">Exterior Finish</div>
+                  <div class="treemap-tile active">Shipping Dock</div>
+                  <div class="treemap-tile">Spare Bay</div>
+                </div>
+              </div>
+
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Floor Music</h3>
+                  <span class="meta" id="music-status">Idle</span>
+                </div>
+                <div class="music-controls">
+                  <button class="music-btn" data-music="play">▶</button>
+                  <button class="music-btn" data-music="pause">⏸</button>
+                  <button class="music-btn" data-music="mute">🔇</button>
+                  <input type="range" min="0" max="100" value="40" id="music-volume" />
+                  <span style="font-size:10px;">Vol: <span id="music-volume-label">40</span>%</span>
+                </div>
+              </div>
+
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Shift Timeline</h3>
+                  <span class="meta">62% through Shift A</span>
+                </div>
+                <div class="timeline">
+                  <div class="timeline-fill"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:4px;">
+                  <span>Start</span>
+                  <span>Break</span>
+                  <span>Lunch</span>
+                  <span>End</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SIMPLE ALT VIEW -->
+        <section id="screen-alt" class="screen">
+          <div class="screen-caption">
+            <span class="title">ADX — Warehouse Floor · Compact View</span>
+            <span class="meta">Same data, stacked layout</span>
+          </div>
+          <div class="widget-card">
+            <div class="widget-header">
+              <h3>Stations Overview</h3>
+              <span class="meta">Tap any station below to highlight</span>
+            </div>
+            <div id="alt-stations" class="stations-grid"></div>
+          </div>
+        </section>
+
+        <!-- COMPLIANCE OVERVIEW -->
+        <section id="screen-compliance" class="screen">
+          <div class="screen-caption">
+            <span class="title">Housing Compliance · Overview</span>
+            <span class="meta">Wireframe widgets to be wired to data later</span>
+          </div>
+          <div class="housing-layout">
+            <div>
+              <div class="section-title">Portfolio Snapshot</div>
+              <div class="top-row">
+                <div class="chip-card">
+                  <div class="chip-label">Families in Pipeline</div>
+                  <div class="chip-value">7</div>
+                  <div class="chip-meta">Across all programs</div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">Units Available</div>
+                  <div class="chip-value">12</div>
+                  <div class="chip-meta">ADX + partners</div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">Docs Verified</div>
+                  <div class="chip-value">68<span class="chip-meta">%</span></div>
+                </div>
+                <div class="chip-card">
+                  <div class="chip-label">High Priority Issues</div>
+                  <div class="chip-value">3</div>
+                  <div class="chip-meta">Across 2 families</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="section-title">Compliance Filters</div>
+              <div class="tag-row">
+                <span class="tag-pill primary">Show: All Pipelines</span>
+                <span class="tag-pill">Only ADX Units</span>
+                <span class="tag-pill">Only Voucher + Tenant Share</span>
+                <span class="tag-pill">Flagged Issues</span>
+              </div>
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Next Actions</h3>
+                  <span class="meta">Auto-generated from rules (future)</span>
+                </div>
+                <ul style="font-size:11px; padding-left:16px; line-height:1.5;">
+                  <li>Resolve ID.me name mismatch for Family One.</li>
+                  <li>Upload income docs for Devaughnair Fairplay.</li>
+                  <li>Confirm subsidy type for Bayview ADX-03.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HOUSING MOVE-IN PIPELINE -->
+        <section id="screen-housing" class="screen">
+          <div class="screen-caption">
+            <span class="title">Housing Compliance & Move-In Pipeline</span>
+            <span class="meta">Day-by-Day → First Home · Family One sample</span>
+          </div>
+
+          <div class="housing-layout">
+            <div>
+              <div class="section-title">Families</div>
+              <div class="family-card">
+                <div class="family-header">
+                  <div class="family-name">
+                    <div class="family-badge">F1</div>
+                    <div>
+                      <div><strong>Family One</strong></div>
+                      <div style="font-size:10px; color:var(--text-soft);">1 adult · 2 children</div>
+                    </div>
+                  </div>
+                  <span class="pipeline-pill">Pipeline</span>
+                </div>
+                <div class="step-row">
+                  <span class="step-chip">Step: Docs &amp; Benefits</span>
+                  <span class="step-chip">Pay: Voucher + Tenant Share</span>
+                </div>
+                <div style="font-size:10px; margin-top:4px; color:var(--text-soft);">
+                  Location: South Hayward Parish Resource Center · Navigator: BACS Hedco · Target move-in: 2025-12-15
+                </div>
+              </div>
+
+              <div style="margin-top:10px;">
+                <div class="section-title">Pathway</div>
+                <div class="pathway">
+                  <div class="pathway-steps">
+                    <div class="path-step">
+                      <div class="path-dot"></div><span class="path-label">Outreach</span>
+                    </div>
+                    <div class="path-step">
+                      <div class="path-dot"></div><span class="path-label">Stabilization</span>
+                    </div>
+                    <div class="path-step">
+                      <div class="path-dot"></div><span class="path-label">Emergency Shelter</span>
+                    </div>
+                    <div class="path-step">
+                      <div class="path-dot pending"></div><span class="path-label">Docs &amp; Benefits</span>
+                    </div>
+                    <div class="path-step">
+                      <div class="path-dot pending"></div><span class="path-label">Match to Unit</span>
+                    </div>
+                    <div class="path-step">
+                      <div class="path-dot pending"></div><span class="path-label">Move-In</span>
+                    </div>
+                  </div>
+                  <div style="font-size:10px; color:var(--text-soft); margin-top:6px;">
+                    From Day-by-Day resources to first home. This wire is meant to be connected to your actual rules engine later.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-title">ID.me Profile</div>
+              <div class="widget-card">
+                <div class="widget-header">
+                  <h3>Linked ID</h3>
+                  <span class="meta">ID.me · Sample only</span>
+                </div>
+                <div style="font-size:10px; color:var(--text-soft); line-height:1.5;">
+                  <div>ID.me ID: IDME-5F0F40-001</div>
+                  <div>Linked: 11/18/2025, 10:30 AM</div>
+                  <div>Legal name: Devaughn A. Fairplay</div>
+                  <div>Application name: Devaughnhair Fairplay</div>
+                </div>
+              </div>
+
+              <div style="margin-top:10px;">
+                <div class="section-title">Dilemmas / Issues</div>
+                <div class="issues-list">
+                  <div class="issue-card medium">
+                    <div class="issue-header">
+                      <span>! Name mismatch</span>
+                      <span>MEDIUM</span>
+                    </div>
+                    <div>
+                      ID.me legal name is “Devaughn A. Fairplay”, but the housing pre-application lists “Devaughnhair Fairplay”.
+                      Next step: Update either the ID.me profile or the housing record so both legal names match exactly.
+                    </div>
+                  </div>
+                  <div class="issue-card">
+                    <div class="issue-header">
+                      <span>! Income not verified</span>
+                      <span>HIGH</span>
+                    </div>
+                    <div>
+                      Reported income from part-time work cannot be verified automatically through ID.me.
+                      Next step: Upload last 3 pay stubs or a benefits award letter via ID.me or attach directly in the ADX dashboard.
+                    </div>
+                  </div>
+                </div>
+                <div class="btn-row">
+                  <button class="action-btn">Add Manual Note</button>
+                  <button class="action-btn alt">Mark Ready for Match</button>
+                  <button class="action-btn primary">Approve for Move-In</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- GROUND TO GALAXY – MODULES PHONE VIEW -->
+        <section id="screen-gtg" class="screen">
+          <div class="screen-caption">
+            <span class="title">GROUND TO GALAXY · Module Catalog</span>
+            <span class="meta">Learn Anywhere · Phone-style card (live HTML)</span>
+          </div>
+
+          <div class="gtg-shell">
+            <div class="gtg-phone">
+              <div class="gtg-header-card">
+                <h2>Learn Anywhere with GROUND TO GALAXY</h2>
+                <p>
+                  Master Manufactured Housing &amp; Space-Based Installation from your phone, tablet, or desktop.
+                  Use the search box to jump to any module.
+                </p>
+                <div class="gtg-search-row">
+                  <input id="gtg-search" type="text" placeholder="Search modules..." />
+                  <button type="button" id="gtg-search-btn">Search</button>
+                </div>
+              </div>
+
+              <div class="gtg-modules-list" id="gtg-modules">
+                <!-- Module 1 -->
+                <article class="gtg-module-card" data-title="module 1 introduction orientation intro & orientation">
+                  <div class="gtg-module-title">Module 1: Introduction &amp; Orientation</div>
+                  <div class="gtg-module-subtitle">Getting Started with ADX SENSE</div>
+                  <div class="gtg-module-body">
+                    Click below to view the preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon>📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Module 2 -->
+                <article class="gtg-module-card" data-title="module 2 site planning planning the site">
+                  <div class="gtg-module-title">Module 2: Site Planning</div>
+                  <div class="gtg-module-subtitle">Mapping Out the Home Location</div>
+                  <div class="gtg-module-body">
+                    Click below to view preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Module 3 -->
+                <article class="gtg-module-card" data-title="module 3 preparing the site prep preparing">
+                  <div class="gtg-module-title">Module 3: Preparing the Site</div>
+                  <div class="gtg-module-subtitle">Soil, Grading &amp; Utilities</div>
+                  <div class="gtg-module-body">
+                    Click below to view preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Module 4 -->
+                <article class="gtg-module-card" data-title="module 4 installing footings">
+                  <div class="gtg-module-title">Module 4: Installing Footings</div>
+                  <div class="gtg-module-subtitle">Support Systems &amp; Anchors</div>
+                  <div class="gtg-module-body">
+                    Click below to view preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Module 5 -->
+                <article class="gtg-module-card" data-title="module 5 constructing foundations foundation">
+                  <div class="gtg-module-title">Module 5: Constructing Foundations</div>
+                  <div class="gtg-module-subtitle">From Footings to Full Support</div>
+                  <div class="gtg-module-body">
+                    Click below to view preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Module 6 -->
+                <article class="gtg-module-card" data-title="module 6 setting the home">
+                  <div class="gtg-module-title">Module 6: Setting the Home</div>
+                  <div class="gtg-module-subtitle">Placement, Leveling &amp; Tie-Downs</div>
+                  <div class="gtg-module-body">
+                    Click below to view preview &amp; quiz for this module.
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                  </div>
+                </article>
+
+                <!-- Driver's School -->
+                <article class="gtg-module-card" data-title="driver's school module drivers school traffic laws vehicle maintenance safety basics">
+                  <div class="gtg-module-title">Driver's School Module</div>
+                  <div class="gtg-module-subtitle">Transport &amp; Safety</div>
+                  <div class="gtg-module-body">
+                    • Traffic laws &amp; rules of the road<br />
+                    • Vehicle maintenance &amp; safety basics
+                  </div>
+                  <div class="gtg-progress-bar">
+                    <div class="gtg-progress-fill" style="width:10%;"></div>
+                  </div>
+                  <div class="gtg-module-footer">
+                    <button class="gtg-preview-btn">
+                      <span class="icon">📖</span> Preview
+                    </button>
+                    <span class="gtg-lock-pill">Addon · Locked</span>
+                  </div>
+                </article>
+              </div>
+
+              <div class="gtg-empty" id="gtg-empty" style="display:none;">
+                No modules match your search yet. Try a different word (for example: “site”, “footings”, or “driver”).
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <footer>
+      Live HTML prototype — cards, sliders, and chips are real elements. Replace dummy data with your generator logic when ready.
+    </footer>
+  </div>
+
+  <script>
+    // Tab navigation
+    const buttons = document.querySelectorAll('.nav-btn');
+    const screens = document.querySelectorAll('.screen');
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-target');
+
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        screens.forEach(s => {
+          if (s.id === targetId) s.classList.add('active');
+          else s.classList.remove('active');
+        });
+      });
+    });
+
+    // Station cards data
+    const stations = [
+      { name: 'Receiving', oee: 80, wip: 1, power: 1, lights: 0, fans: 50, status: 'idle' },
+      { name: 'Cutting / Prep', oee: 75, wip: 2, power: 1, lights: 40, fans: 70, status: 'idle' },
+      { name: 'Framing', oee: 70, wip: 3, power: 1, lights: 60, fans: 90, status: 'idle' },
+      { name: 'Plumbing', oee: 65, wip: 4, power: 1, lights: 75, fans: 0, status: 'idle' },
+      { name: 'Electrical', oee: 80, wip: 5, power: 1, lights: 90, fans: 30, status: 'idle' },
+      { name: 'HVAC', oee: 75, wip: 1, power: 1, lights: 60, fans: 50, status: 'idle' },
+      { name: 'Insulation', oee: 70, wip: 2, power: 1, lights: 40, fans: 70, status: 'idle' },
+      { name: 'Interior Finish', oee: 65, wip: 3, power: 1, lights: 60, fans: 90, status: 'idle' },
+      { name: 'Exterior Finish', oee: 80, wip: 4, power: 1, lights: 75, fans: 0, status: 'idle' },
+      { name: 'QA / Inspect', oee: 75, wip: 5, power: 1, lights: 90, fans: 30, status: 'idle' },
+      { name: 'Shipping Dock', oee: 70, wip: 1, power: 1, lights: 0, fans: 50, status: 'idle' },
+    ];
+
+    function createStationCard(station, index, compact) {
+      const card = document.createElement('div');
+      card.className = 'station-card';
+      card.dataset.index = index;
+
+      const header = document.createElement('div');
+      header.className = 'station-header';
+
+      const name = document.createElement('div');
+      name.className = 'station-name';
+      name.textContent = station.name;
+
+      const status = document.createElement('span');
+      status.className = 'status-pill idle';
+      status.textContent = 'Idle';
+      status.dataset.role = 'status';
+
+      header.appendChild(name);
+      header.appendChild(status);
+      card.appendChild(header);
+
+      // Power toggle
+      const powerRow = document.createElement('div');
+      powerRow.className = 'slider-row';
+      powerRow.innerHTML = '<span class="label">Power</span>';
+      const powerToggle = document.createElement('input');
+      powerToggle.type = 'checkbox';
+      powerToggle.checked = !!station.power;
+      powerToggle.addEventListener('change', () => {
+        status.textContent = powerToggle.checked ? 'Running' : 'Idle';
+        status.classList.toggle('running', powerToggle.checked);
+        status.classList.toggle('idle', !powerToggle.checked);
+      });
+      const powerLabel = document.createElement('span');
+      powerLabel.className = 'value';
+      powerLabel.textContent = powerToggle.checked ? 'On' : 'Off';
+      powerToggle.addEventListener('change', () => {
+        powerLabel.textContent = powerToggle.checked ? 'On' : 'Off';
+      });
+      powerRow.appendChild(powerToggle);
+      powerRow.appendChild(powerLabel);
+      card.appendChild(powerRow);
+
+      // Lights slider
+      const lightsRow = document.createElement('div');
+      lightsRow.className = 'slider-row';
+      lightsRow.innerHTML = '<span class="label">Lights</span>';
+      const lightsSlider = document.createElement('input');
+      lightsSlider.type = 'range';
+      lightsSlider.min = 0;
+      lightsSlider.max = 100;
+      lightsSlider.value = station.lights;
+      const lightsValue = document.createElement('span');
+      lightsValue.className = 'value';
+      lightsValue.textContent = station.lights + '%';
+      lightsSlider.addEventListener('input', () => {
+        lightsValue.textContent = lightsSlider.value + '%';
+      });
+      lightsRow.appendChild(lightsSlider);
+      lightsRow.appendChild(lightsValue);
+      card.appendChild(lightsRow);
+
+      // Fans slider
+      const fansRow = document.createElement('div');
+      fansRow.className = 'slider-row';
+      fansRow.innerHTML = '<span class="label">Fans</span>';
+      const fansSlider = document.createElement('input');
+      fansSlider.type = 'range';
+      fansSlider.min = 0;
+      fansSlider.max = 100;
+      fansSlider.value = station.fans;
+      const fansValue = document.createElement('span');
+      fansValue.className = 'value';
+      fansValue.textContent = station.fans + '%';
+      fansSlider.addEventListener('input', () => {
+        fansValue.textContent = fansSlider.value + '%';
+      });
+      fansRow.appendChild(fansSlider);
+      fansRow.appendChild(fansValue);
+      card.appendChild(fansRow);
+
+      const footer = document.createElement('div');
+      footer.className = 'station-footer';
+      const wip = document.createElement('span');
+      wip.textContent = 'WIP ' + station.wip;
+      const oee = document.createElement('span');
+      oee.textContent = 'OEE ' + station.oee + '%';
+      footer.appendChild(wip);
+      footer.appendChild(oee);
+
+      if (!compact) {
+        const btn = document.createElement('button');
+        btn.className = 'small-btn primary';
+        btn.textContent = 'Start 45m';
+        footer.appendChild(btn);
+      }
+
+      card.appendChild(footer);
+
+      if (compact) {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('#alt-stations .station-card').forEach(c => c.style.outline = 'none');
+          card.style.outline = '2px solid var(--accent-amber)';
+        });
+      }
+
+      return card;
+    }
+
+    const grid = document.getElementById('stations-grid');
+    const altGrid = document.getElementById('alt-stations');
+    stations.forEach((s, i) => {
+      grid.appendChild(createStationCard(s, i, false));
+      altGrid.appendChild(createStationCard(s, i, true));
+    });
+
+    // Scenes widget
+    const sceneLabel = document.getElementById('scene-label');
+    document.querySelectorAll('.scene-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const scene = btn.getAttribute('data-scene');
+        sceneLabel.textContent = 'Scene: ' + scene;
+      });
+    });
+
+    // Tool lift progress (simple fake loop)
+    const toolProgress = document.getElementById('tool-progress');
+    let prog = 0;
+    setInterval(() => {
+      prog = (prog + 5) % 105;
+      toolProgress.style.width = prog + '%';
+    }, 600);
+
+    // Music controls
+    const musicStatus = document.getElementById('music-status');
+    document.querySelectorAll('.music-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-music');
+        if (mode === 'play') musicStatus.textContent = 'Playing · House Mix A';
+        if (mode === 'pause') musicStatus.textContent = 'Paused';
+        if (mode === 'mute') musicStatus.textContent = 'Muted on floor';
+      });
+    });
+    const volInput = document.getElementById('music-volume');
+    const volLabel = document.getElementById('music-volume-label');
+    volInput.addEventListener('input', () => {
+      volLabel.textContent = volInput.value;
+    });
+
+    // GROUND TO GALAXY SEARCH FILTER
+    const gtgSearch = document.getElementById('gtg-search');
+    const gtgSearchBtn = document.getElementById('gtg-search-btn');
+    const gtgModules = document.querySelectorAll('#gtg-modules .gtg-module-card');
+    const gtgEmpty = document.getElementById('gtg-empty');
+
+    function filterGTGModules() {
+      const term = (gtgSearch.value || '').toLowerCase().trim();
+      let visibleCount = 0;
+
+      gtgModules.forEach(card => {
+        const title = card.getAttribute('data-title') || '';
+        const match = title.toLowerCase().includes(term);
+        card.style.display = match || term === '' ? 'block' : 'none';
+        if (match || term === '') visibleCount++;
+      });
+
+      gtgEmpty.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+
+    if (gtgSearch) {
+      gtgSearch.addEventListener('input', filterGTGModules);
+    }
+    if (gtgSearchBtn) {
+      gtgSearchBtn.addEventListener('click', filterGTGModules);
+    }
+  </script>
+</body>
+</html>
+
