@@ -3,6 +3,27 @@
 - 🌱 I’m currently learning source code css/html/java and finishing a code for software products.
 - 💞️ I’m looking to collaborate on software projects
 - 📫 How to reach me Darrylh.eteam@gmail.com
+ 
+## ADX Splash Preview
+
+This repo now includes a small Vite/React scaffold that mounts the `ADXSplash` experience for interactive preview.
+
+### Run locally
+
+1. Install dependencies: `npm install`
+2. Start the dev server: `npm run dev`
+3. Open the printed localhost URL (default `http://localhost:5173`).
+
+> Note: The sandbox used to generate this commit could not reach npm (`403 Forbidden` on registry requests), so the preview cannot run here. Running the steps above in a regular environment with internet access will show the splash screen UI.
+
+### Zero-install preview (phone friendly)
+
+If you just want to see the UI without installing anything, open `standalone-preview.html` in a modern mobile or desktop browser.
+
+- The file pulls React, Lucide icons, and Tailwind from CDNs and transpiles the TSX on the fly with Babel Standalone.
+- On Android, tap the file in your file manager or upload it to a browser-based editor (e.g., StackBlitz) and open it in a new tab.
+
+Controls, compliance badges, and timers stay interactive; audio playback still depends on your browser’s media permissions.
 <!---
 dznray4/dznray4 is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 You can click the Preview link to take a look at your changes.
