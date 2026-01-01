@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADX Splash Standalone Preview</title>
+  <link rel="preconnect" href="https://esm.sh" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.13/dist/tailwind.min.css" />
+  <style>
+    body {
+      background: radial-gradient(circle at 10% 10%, rgba(255, 194, 82, 0.08), transparent 25%),
+                  radial-gradient(circle at 90% 20%, rgba(82, 193, 255, 0.06), transparent 30%),
+                  #0c0a09;
+      min-height: 100vh;
+      color: #f4f4f5;
+    }
+    * { box-sizing: border-box; }
+    .glass {
+      background: rgba(24, 24, 27, 0.7);
+      border: 1px solid rgba(63, 63, 70, 0.8);
+      backdrop-filter: blur(12px);
+    }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .btn { transition: transform 0.08s ease, opacity 0.12s ease; }
+    .btn:active { transform: translateY(1px); opacity: 0.9; }
+  </style>
+</head>
+<body class="p-4 md:p-6 font-sans">
+  <div id="root"></div>
+
+  <!-- React + Babel + Lucide pulled from CDNs so this works without npm install -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18?dev",
+        "react-dom/client": "https://esm.sh/react-dom@18/client?dev",
+        "lucide-react": "https://esm.sh/lucide-react@0.460.0?dev"
+      }
+    }
+  </script>
+
+  <script type="text/babel" data-type="module" data-presets="typescript,react">
+    import React, { useEffect, useMemo, useRef, useState } from "react";
+    import { createRoot } from "react-dom/client";
+    import {
+      AlertTriangle,
+      BatteryCharging,
+      Bell,
+      Bolt,
+      Box,
+      Building2,
+      CheckCircle2,
+      Clock3,
+      Cloud,
+      DoorOpen,
+      Factory,
+      Fan,
+      Flame,
+      Gauge,
+      HardHat,
+      LayoutGrid,
+      Lightbulb,
+      Link as LinkIcon,
+      Lock,
+      LockOpen,
+      MapPin,
+      Pause,
+      Play,
+      Power,
+      ShieldCheck,
+      Siren,
+      SkipForward,
+      Speaker,
+      Sun,
+      Thermometer,
+      UserPlus,
+      Users,
+      Wrench,
+      Volume2,
+      VolumeX,
+      BadgeCheck,
+      CalendarClock
+    } from "lucide-react";
+
+    /* --------- Tiny UI shims (rough Tailwind look) --------- */
+    const cn = (...cls) => cls.filter(Boolean).join(" ");
+    const Card = ({ className = "", children }) => (
+      <div className={cn("glass rounded-2xl shadow-lg", className)}>{children}</div>
+    );
+    const CardContent = ({ className = "", children }) => (
+      <div className={cn("p-4", className)}>{children}</div>
+    );
+    const Button = ({ className = "", children, ...rest }) => (
+      <button
+        className={cn(
+          "btn inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 text-zinc-900 px-3 py-2 text-sm font-semibold hover:bg-amber-400",
+          className
+        )}
+        {...rest}
+      >
+        {children}
+      </button>
+    );
+    const Slider = ({ value, onChange, min = 0, max = 100 }) => (
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange([Number(e.target.value)])}
+        className="w-full accent-amber-400"
+      />
+    );
+    const Input = ({ className = "", ...rest }) => (
+      <input
+        {...rest}
+        className={cn(
+          "w-full rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-400/70",
+          className
+        )}
+      />
+    );
+    const Badge = ({ className = "", children }) => (
+      <span className={cn("inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold", className)}>
+        {children}
+      </span>
+    );
+    const Progress = ({ value }) => (
+      <div className="h-1 w-full rounded-full bg-zinc-800">
+        <div
+          className="h-1 rounded-full bg-amber-400"
+          style={{ width: `${Math.min(100, Math.max(0, value || 0))}%` }}
+        />
+      </div>
+    );
+    const Switch = ({ checked, onChange }) => (
+      <label className="relative inline-flex cursor-pointer items-center">
+        <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <div className="h-5 w-10 rounded-full bg-zinc-600 peer-checked:bg-amber-400 transition" />
+        <div className="absolute left-1 top-1 h-3 w-3 rounded-full bg-white peer-checked:translate-x-5 transition" />
+      </label>
+    );
+
+    /* --------- Types & helpers --------- */
+    const DEFAULT_STATIONS = [
+      { id: "rec", name: "Receiving", icon: Box },
+      { id: "cut", name: "Cutting / Prep", icon: Wrench },
+      { id: "frame", name: "Framing", icon: Building2 },
+      { id: "plumb", name: "Plumbing", icon: Gauge },
+      { id: "elec", name: "Electrical", icon: Bolt },
+      { id: "hvac", name: "HVAC", icon: Fan },
+      { id: "insul", name: "Insulation", icon: ShieldCheck },
+      { id: "int", name: "Interior Finish", icon: Lightbulb },
+      { id: "ext", name: "Exterior Finish", icon: Sun },
+      { id: "qa", name: "QA / Inspect", icon: HardHat },
+      { id: "dock", name: "Shipping Dock", icon: DoorOpen }
+    ];
+
+    const addMonths = (d, months) => {
+      const dt = new Date(d);
+      dt.setMonth(dt.getMonth() + months);
+      return dt;
+    };
+    const formatMMMYYYY = (d) => d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    const computeCompliance = (p) => {
+      if (p.cycle === "post2026") return { ...p, status: "compliant" };
+      const base = new Date(p.approvalDate);
+      const months = p.projectType === "housing" ? 36 : 15;
+      const expires = addMonths(base, months);
+      const now = new Date();
+      const monthsLeft = Math.max(0, Math.round((expires - now) / (1000 * 60 * 60 * 24 * 30)));
+      const status = expires < now ? "expired" : monthsLeft < 6 ? "expiring" : "valid";
+      return { ...p, expiresAt: expires.toISOString(), monthsLeft, status };
+    };
+    const badgeTone = (status) => {
+      switch (status) {
+        case "valid":
+        case "compliant":
+          return "bg-emerald-600 text-white";
+        case "expiring":
+          return "bg-amber-600 text-white";
+        case "expired":
+          return "bg-rose-600 text-white";
+      }
+    };
+    const statusLabel = (p) => {
+      if (p.cycle === "post2026") return "CBSC 2026+ — Compliant";
+      if (p.status === "expired") return "Expired";
+      if (p.status === "expiring") return `Expires in ${p.monthsLeft}m`;
+      return "Valid";
+    };
+
+    const seedState = () =>
+      Object.fromEntries(
+        DEFAULT_STATIONS.map((s, i) => [
+          s.id,
+          {
+            power: i !== 0,
+            lux: [0, 40, 60, 75, 90][i % 5],
+            fan: [0, 30, 50, 70, 90][(i + 2) % 5],
+            locked: false,
+            alert: false,
+            crew: (i % 3) + 2,
+            oee: 80 - (i % 4) * 5,
+            wip: (i % 5) + 1
+          }
+        ])
+      );
+
+    const MAP_TILES = [
+      { key: "rec", stationId: "rec", label: "Receiving", x: 1, y: 1, w: 3, h: 3 },
+      { key: "cut", stationId: "cut", label: "Cut / Prep", x: 4, y: 1, w: 3, h: 2 },
+      { key: "frame", stationId: "frame", label: "Framing", x: 7, y: 1, w: 3, h: 3 },
+      { key: "plumb", stationId: "plumb", label: "Plumbing", x: 10, y: 1, w: 3, h: 2 },
+      { key: "elec", stationId: "elec", label: "Electrical", x: 1, y: 4, w: 3, h: 2 },
+      { key: "hvac", stationId: "hvac", label: "HVAC", x: 4, y: 3, w: 2, h: 3 },
+      { key: "insul", stationId: "insul", label: "Insulation", x: 6, y: 4, w: 2, h: 2 },
+      { key: "int", stationId: "int", label: "Interior", x: 8, y: 4, w: 3, h: 3 },
+      { key: "ext", stationId: "ext", label: "Exterior", x: 11, y: 3, w: 2, h: 4 },
+      { key: "qa", stationId: "qa", label: "QA / Inspect", x: 1, y: 6, w: 4, h: 2 },
+      { key: "dock", stationId: "dock", label: "Shipping Dock", x: 5, y: 6, w: 8, h: 2 }
+    ];
+
+    const ADXBrand = () => (
+      <div className="flex items-center gap-3">
+        <div className="h-8 w-8 rounded-full border border-amber-400 grid place-content-center">
+          <div className="h-2 w-2 rounded-full bg-amber-400" />
+        </div>
+        <div className="leading-tight">
+          <div className="text-amber-400 tracking-widest text-xs">AERIAL DEVELOPMENT X</div>
+          <div className="text-white font-semibold text-lg">ADX — Warehouse Floor</div>
+        </div>
+      </div>
+    );
+
+    const NowClock = () => {
+      const [now, setNow] = useState(new Date());
+      useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(t);
+      }, []);
+      const hh = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const date = now.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+      return (
+        <div className="text-right">
+          <div className="text-3xl font-bold text-white">{hh}</div>
+          <div className="text-sm text-zinc-400">{date}</div>
+        </div>
+      );
+    };
+
+    const WeatherMini = () => (
+      <div className="flex items-center gap-3">
+        <Cloud className="h-6 w-6 text-zinc-300" />
+        <div>
+          <div className="text-sm text-white">Overcast</div>
+          <div className="text-xs text-zinc-400">68°F · Light wind</div>
+        </div>
+      </div>
+    );
+
+    const tileColor = (active, warn) => {
+      if (warn) return "bg-amber-500/30 ring-2 ring-amber-400";
+      if (active) return "bg-amber-500/20";
+      return "bg-zinc-800/70";
+    };
+
+    const KPI = ({ label, value, icon: Icon, sub }) => (
+      <Card className="bg-zinc-900/70 border-zinc-700 rounded-2xl">
+        <CardContent className="p-4 flex items-center gap-4">
+          <div className="p-2 rounded-xl bg-zinc-800">
+            <Icon className="h-5 w-5 text-amber-400" />
+          </div>
+          <div className="leading-tight">
+            <div className="text-zinc-400 text-xs">{label}</div>
+            <div className="text-white text-xl font-semibold">{value}</div>
+            {sub && <div className="text-zinc-500 text-[11px]">{sub}</div>}
+          </div>
+        </CardContent>
+      </Card>
+    );
+
+    const StationTile = ({ station, value, onChange, timer, onTimerStart, onTimerStop, crewHere, activeProject }) => {
+      const Icon = station.icon;
+      const pct = (() => {
+        if (!timer?.startedAt) return 0;
+        const elapsedMin = (Date.now() - (timer.startedAt || 0)) / 60000;
+        return Math.min(100, (elapsedMin / Math.max(1, timer.targetMins)) * 100);
+      })();
+      const showBadge = !!activeProject;
+      const badgeText = activeProject
+        ? `${activeProject.label}${
+            activeProject.cycle === "pre2026" && activeProject.expiresAt
+              ? ` — Expires: ${formatMMMYYYY(new Date(activeProject.expiresAt))}`
+              : " — CBSC 2026+"
+          }`
+        : "";
+
+      return (
+        <div className={`rounded-2xl p-3 md:p-4 border border-zinc-700 shadow-inner ${tileColor(value.power, value.alert)}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Icon className="h-5 w-5 text-zinc-300" />
+              <div className="text-sm font-medium text-white">{station.name}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              {value.locked ? <Lock className="h-4 w-4 text-zinc-400" /> : <LockOpen className="h-4 w-4 text-zinc-400" />}
+              {value.alert ? <AlertTriangle className="h-4 w-4 text-amber-400" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+            </div>
+          </div>
+
+          {showBadge && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <span className={`px-2 py-0.5 rounded-md ${badgeTone(activeProject.status)}`}>
+                <span className="inline-flex items-center gap-1">
+                  <BadgeCheck className="h-3.5 w-3.5" /> {badgeText}
+                </span>
+              </span>
+              <span className="text-zinc-400">{statusLabel(activeProject)}</span>
+            </div>
+          )}
+
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-400">Power</div>
+              <Switch checked={value.power} onChange={(b) => onChange?.({ power: b })} />
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-400">Lights</div>
+              <Slider value={value.lux} onChange={(v) => onChange?.({ lux: v[0] })} max={100} />
+              <div className="text-xs text-zinc-400">{value.lux}%</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-400">Fans</div>
+              <Slider value={value.fan} onChange={(v) => onChange?.({ fan: v[0] })} max={100} />
+              <div className="text-xs text-zinc-400">{value.fan}%</div>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <Progress value={pct} className="h-1 bg-zinc-800" />
+            <div className="mt-2 flex items-center justify-between text-xs text-zinc-400">
+              <div>{timer?.startedAt ? <span>Running · Target {timer.targetMins}m</span> : <span>Idle</span>}</div>
+              <div className="flex items-center gap-2">
+                {!timer?.startedAt ? (
+                  <Button size="sm" className="h-7 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white px-2" onClick={() => onTimerStart?.(45)}>
+                    Start 45m
+                  </Button>
+                ) : (
+                  <Button size="sm" className="h-7 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-white px-2" onClick={onTimerStop}>
+                    Stop
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <Users className="h-3.5 w-3.5" /> {crewHere} on post
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="bg-zinc-700/80 text-zinc-200">OEE {value.oee}%</Badge>
+              <Badge className="bg-zinc-700/80 text-zinc-200">WIP {value.wip}</Badge>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    function ADXSplash() {
+      const [stations, setStations] = useState(seedState);
+      const [timers, setTimers] = useState({});
+      const [query, setQuery] = useState("");
+      const [muted, setMuted] = useState(false);
+      const [mapMode, setMapMode] = useState("grid");
+
+      const [employees, setEmployees] = useState([
+        { id: "1001", name: "Alex", role: "Assembler", onFloor: true, stationId: "frame", clockEvents: [] },
+        { id: "1002", name: "Bri", role: "QC", onFloor: true, stationId: "qa", clockEvents: [] }
+      ]);
+
+      const [projects, setProjects] = useState([
+        { id: "p22", label: "2022 Plan", projectType: "housing", cycle: "pre2026", approvalDate: "2022-03-15" },
+        { id: "p25", label: "2025 Plan", projectType: "modular", cycle: "pre2026", approvalDate: "2025-01-10" },
+        { id: "p27", label: "2027 Plan", projectType: "housing", cycle: "post2026", approvalDate: "2027-02-01" }
+      ]);
+      const derived = useMemo(() => projects.map(computeCompliance), [projects]);
+      const [activeProjectId, setActiveProjectId] = useState(projects[0]?.id || "");
+      const activeProject = useMemo(() => derived.find((p) => p.id === activeProjectId) || null, [derived, activeProjectId]);
+
+      const [clockOpen, setClockOpen] = useState(false);
+      const [clockName, setClockName] = useState("");
+      const [clockStation, setClockStation] = useState(DEFAULT_STATIONS[0].id);
+
+      const [projOpen, setProjOpen] = useState(false);
+      const [projLabel, setProjLabel] = useState("");
+      const [projApproval, setProjApproval] = useState("");
+      const [projType, setProjType] = useState("housing");
+      const [projCycle, setProjCycle] = useState("pre2026");
+
+      const clockIn = () => {
+        const id = Math.random().toString(36).slice(2, 8);
+        setEmployees((e) => [
+          ...e,
+          {
+            id,
+            name: clockName || `Worker ${id}`,
+            role: "Crew",
+            onFloor: true,
+            stationId: clockStation,
+            clockEvents: [{ t: Date.now(), type: "in" }]
+          }
+        ]);
+        setClockOpen(false);
+        setClockName("");
+      };
+
+      const clockOutAll = () =>
+        setEmployees((e) =>
+          e.map((x) => ({ ...x, onFloor: false, stationId: undefined, clockEvents: [...x.clockEvents, { t: Date.now(), type: "out" }] }))
+        );
+
+      const addProject = () => {
+        if (!projLabel || !projApproval) return;
+        const id = Math.random().toString(36).slice(2, 8);
+        setProjects((p) => [...p, { id, label: projLabel, projectType: projType, cycle: projCycle, approvalDate: projApproval }]);
+        setProjOpen(false);
+        setProjLabel("");
+        setProjApproval("");
+      };
+
+      const [vlm, setVlm] = useState({ state: "IDLE", bay: 12, shelf: 4, queue: 3, doorLocked: true });
+      useEffect(() => {
+        const t = setInterval(() => {
+          setVlm((v) => ({ ...v, state: v.state === "MOVING" ? "IDLE" : "MOVING", bay: (v.bay % 24) + 1, shelf: (v.shelf % 8) + 1 }));
+        }, 5000);
+        return () => clearInterval(t);
+      }, []);
+
+      const [playlist] = useState(["/media/track1.mp3", "/media/track2.mp3"]);
+      const [track, setTrack] = useState(0);
+      const audioRef = useRef(null);
+      const play = () => audioRef.current?.play();
+      const pause = () => audioRef.current?.pause();
+      const next = () => setTrack((i) => (i + 1) % playlist.length);
+      useEffect(() => {
+        if (audioRef.current) audioRef.current.volume = muted ? 0 : 0.6;
+      }, [muted, track]);
+
+      const totals = useMemo(() => {
+        const list = Object.values(stations);
+        const powered = list.filter((s) => s.power).length;
+        const crew = employees.filter((e) => e.onFloor).length;
+        const wip = list.reduce((a, b) => a + b.wip, 0);
+        return { powered, crew, wip };
+      }, [stations, employees]);
+
+      const filtered = useMemo(() => {
+        if (!query.trim()) return DEFAULT_STATIONS;
+        return DEFAULT_STATIONS.filter((s) => s.name.toLowerCase().includes(query.toLowerCase()));
+      }, [query]);
+
+      const applyToAll = (upd) => {
+        setStations((old) => {
+          const next = { ...old };
+          Object.keys(next).forEach((k) => (next[k] = { ...next[k], ...upd }));
+          return next;
+        });
+      };
+
+      const triggerScene = (which) => {
+        if (which === "start") {
+          applyToAll({ power: true, lux: 70, fan: 40, alert: false });
+        } else if (which === "lunch") {
+          applyToAll({ lux: 30, fan: 20 });
+        } else if (which === "evac") {
+          applyToAll({ power: false, lux: 0, fan: 0, alert: true });
+          pause();
+        } else if (which === "alloff") {
+          applyToAll({ power: false, lux: 0, fan: 0, alert: false });
+          pause();
+        }
+      };
+
+      const percentFor = (id) => {
+        const tt = timers[id];
+        if (!tt?.startedAt) return 0;
+        const elapsedMin = (Date.now() - tt.startedAt) / 60000;
+        return Math.min(100, (elapsedMin / Math.max(1, tt.targetMins)) * 100);
+      };
+
+      const activeStations = useMemo(
+        () =>
+          DEFAULT_STATIONS.filter((s) => {
+            const st = stations[s.id];
+            const onPost = employees.some((e) => e.onFloor && e.stationId === s.id);
+            return st.power || onPost || percentFor(s.id) > 0;
+          }),
+        [stations, employees, timers]
+      );
+
+      const compCounts = useMemo(() => {
+        const d = derived;
+        return {
+          valid: d.filter((x) => x.status === "valid" || x.status === "compliant").length,
+          expiring: d.filter((x) => x.status === "expiring").length,
+          expired: d.filter((x) => x.status === "expired").length
+        };
+      }, [derived]);
+
+      const alerts = useMemo(() => derived.filter((x) => x.status === "expiring" || x.status === "expired"), [derived]);
+
+      return (
+        <div className="min-h-screen">
+          <div className="flex items-start justify-between gap-4">
+            <ADXBrand />
+            <div className="hidden md:flex items-center gap-6">
+              <WeatherMini />
+              <div className="h-10 w-px bg-zinc-800" />
+              <div className="flex items-center gap-2 text-sm text-zinc-300">
+                <Bell className="h-4 w-4" /> Alerts
+                <Badge className={`${alerts.length ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-300"}`}>{alerts.length}</Badge>
+              </div>
+              <div className="h-10 w-px bg-zinc-800" />
+              <NowClock />
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <KPI label="Orders in Queue" value={`${totals.wip}`} icon={Box} sub="Current WIP" />
+            <KPI label="Stations Online" value={`${totals.powered}/${DEFAULT_STATIONS.length}`} icon={Factory} sub="Power state" />
+            <KPI label="Crew On Floor" value={`${totals.crew}`} icon={Users} sub="Clocked in" />
+            <KPI label="Energy Load" value="72%" icon={BatteryCharging} sub="Realtime draw" />
+            <KPI label="Compliance Status" value={`${compCounts.valid} valid / ${compCounts.expiring} expiring / ${compCounts.expired} expired`} icon={CalendarClock} sub="Code cycle" />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              <Card className="glass">
+                <CardContent className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-zinc-400 text-xs">Project</div>
+                    <div className="text-white text-lg font-semibold">{activeProject?.label}</div>
+                    <div className="text-zinc-500 text-sm">{statusLabel(activeProject || { status: "valid", cycle: "pre2026", monthsLeft: 0 })}</div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="rounded-lg bg-zinc-900/70 border border-zinc-700 px-3 py-2 text-sm"
+                      value={activeProjectId}
+                      onChange={(e) => setActiveProjectId(e.target.value)}
+                    >
+                      {derived.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} — {p.cycle === "pre2026" ? `Expires ${formatMMMYYYY(new Date(p.expiresAt || ""))}` : "CBSC 2026+"}
+                        </option>
+                      ))}
+                    </select>
+                    <Button className="bg-zinc-200 text-zinc-900 hover:bg-white" onClick={() => setProjOpen(true)}>
+                      <BadgeCheck className="h-4 w-4" /> Add Project
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Card className="glass">
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-zinc-400 text-xs">Filter</div>
+                        <div className="text-white font-semibold">Stations</div>
+                      </div>
+                      <Input
+                        placeholder="Search..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="w-40"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {filtered.map((s) => (
+                        <div key={s.id} className="flex items-center gap-2 text-zinc-300">
+                          <div className="h-2 w-2 rounded-full bg-emerald-400" /> {s.name}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="glass">
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-zinc-400 text-xs">Scenes</div>
+                        <div className="text-white font-semibold">One-tap presets</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={() => triggerScene("start")}>
+                          <Play className="h-4 w-4" /> Start
+                        </Button>
+                        <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={() => triggerScene("lunch")}>
+                          <Clock3 className="h-4 w-4" /> Lunch
+                        </Button>
+                        <Button className="bg-rose-500 text-white hover:bg-rose-400 px-3" onClick={() => triggerScene("evac")}>
+                          <Siren className="h-4 w-4" /> Evac
+                        </Button>
+                        <Button className="bg-zinc-600 text-white hover:bg-zinc-500 px-3" onClick={() => triggerScene("alloff")}>
+                          <Power className="h-4 w-4" /> All Off
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="glass">
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-zinc-400 text-xs">View</div>
+                      <div className="text-white font-semibold">{mapMode === "grid" ? "Grid" : "Plan"} layout</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button className={cn("bg-zinc-800 text-white px-3", mapMode === "grid" && "bg-amber-500 text-zinc-900")} onClick={() => setMapMode("grid")}>
+                        <LayoutGrid className="h-4 w-4" /> Grid
+                      </Button>
+                      <Button className={cn("bg-zinc-800 text-white px-3", mapMode === "plan" && "bg-amber-500 text-zinc-900")} onClick={() => setMapMode("plan")}>
+                        <MapPin className="h-4 w-4" /> Plan
+                      </Button>
+                    </div>
+                  </div>
+
+                  {mapMode === "grid" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {activeStations.map((s) => (
+                        <StationTile
+                          key={s.id}
+                          station={s}
+                          value={stations[s.id]}
+                          crewHere={employees.filter((e) => e.onFloor && e.stationId === s.id).length}
+                          timer={timers[s.id]}
+                          onChange={(data) => setStations((old) => ({ ...old, [s.id]: { ...old[s.id], ...data } }))}
+                          onTimerStart={(mins) => setTimers((t) => ({ ...t, [s.id]: { startedAt: Date.now(), targetMins: mins } }))}
+                          onTimerStop={() => setTimers((t) => ({ ...t, [s.id]: { ...t[s.id], startedAt: undefined } }))}
+                          activeProject={activeProject}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-zinc-950 p-4">
+                      <div className="grid grid-cols-12 gap-1">
+                        {MAP_TILES.map((t) => {
+                          const st = stations[t.stationId];
+                          const onPost = employees.some((e) => e.onFloor && e.stationId === t.stationId);
+                          const pct = percentFor(t.stationId);
+                          return (
+                            <div
+                              key={t.key}
+                              className="border border-zinc-800/80 rounded-xl p-3 bg-zinc-900/60"
+                              style={{ gridColumn: `span ${t.w}`, gridRow: `span ${t.h}` }}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-sm text-white">
+                                <span>{t.label}</span>
+                                <span className="text-xs text-zinc-400">{pct ? `${pct.toFixed(0)}%` : "Idle"}</span>
+                              </div>
+                              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-400">
+                                <span className="h-2 w-2 rounded-full" style={{ background: st.power ? "#22c55e" : "#71717a" }} />
+                                <span>{st.power ? "Online" : "Offline"}</span>
+                                <span className="h-2 w-2 rounded-full" style={{ background: onPost ? "#22d3ee" : "#71717a" }} />
+                                <span>{onPost ? "Crew on post" : "No crew"}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <Card className="glass">
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-zinc-400 text-xs">Compliance Alerts</div>
+                      <div className="text-white font-semibold">{alerts.length} flagged</div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-auto scrollbar-hide">
+                    {alerts.map((a) => (
+                      <div key={a.id} className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="font-semibold text-white">{a.label}</div>
+                          <Badge className={badgeTone(a.status)}>{statusLabel(a)}</Badge>
+                        </div>
+                        <div className="text-xs text-amber-200 mt-1">Approval {formatMMMYYYY(new Date(a.approvalDate))}</div>
+                      </div>
+                    ))}
+                    {!alerts.length && <div className="text-xs text-zinc-500">No alerts</div>}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass">
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-zinc-400 text-xs">Crew</div>
+                      <div className="text-white font-semibold">{employees.filter((e) => e.onFloor).length} on floor</div>
+                    </div>
+                    <Button className="bg-zinc-200 text-zinc-900 hover:bg-white" onClick={() => setClockOpen(true)}>
+                      <UserPlus className="h-4 w-4" /> Clock In
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-auto scrollbar-hide">
+                    {employees.map((e) => (
+                      <div key={e.id} className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-3">
+                        <div className="flex items-center justify-between text-sm text-white">
+                          <span>{e.name}</span>
+                          <Badge className={cn("bg-zinc-700 text-zinc-200", e.onFloor && "bg-emerald-600 text-white")}>{e.onFloor ? "On" : "Off"}</Badge>
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-1">{e.role}</div>
+                        <div className="text-xs text-amber-200 mt-1">{e.stationId ? `At ${DEFAULT_STATIONS.find((s) => s.id === e.stationId)?.name}` : "Off floor"}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="bg-rose-500 hover:bg-rose-400 text-white w-full" onClick={clockOutAll}>
+                    Clock out all
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="glass">
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-zinc-400 text-xs">VLM</div>
+                      <div className="text-white font-semibold">Bay {vlm.bay} · Shelf {vlm.shelf}</div>
+                    </div>
+                    <Badge className={cn("bg-zinc-700 text-zinc-200", vlm.state === "MOVING" && "bg-emerald-500 text-white")}>{vlm.state}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-zinc-300">
+                    <div className="flex items-center gap-2"><Lock className="h-4 w-4" /> {vlm.doorLocked ? "Door locked" : "Door open"}</div>
+                    <div className="flex items-center gap-2"><Siren className="h-4 w-4" /> Queue {vlm.queue}</div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="glass">
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-zinc-400 text-xs">Audio</div>
+                      <div className="text-white font-semibold">Playlist {track + 1}/{playlist.length}</div>
+                    </div>
+                    <Switch checked={!muted} onChange={(b) => setMuted(!b)} />
+                  </div>
+                  <audio ref={audioRef} src={playlist[track]} className="hidden" />
+                  <div className="flex items-center gap-2">
+                    <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={play}><Play className="h-4 w-4" /></Button>
+                    <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={pause}><Pause className="h-4 w-4" /></Button>
+                    <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={next}><SkipForward className="h-4 w-4" /></Button>
+                    <Button className="bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={() => setMuted((m) => !m)}>
+                      {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {clockOpen && (
+            <div className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4">
+              <div className="glass rounded-2xl w-full max-w-md p-6 space-y-4">
+                <div className="text-lg font-semibold text-white">Clock In</div>
+                <Input placeholder="Name" value={clockName} onChange={(e) => setClockName(e.target.value)} />
+                <select
+                  className="w-full rounded-lg bg-zinc-900/70 border border-zinc-700 px-3 py-2 text-sm"
+                  value={clockStation}
+                  onChange={(e) => setClockStation(e.target.value)}
+                >
+                  {DEFAULT_STATIONS.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <div className="flex justify-end gap-2">
+                  <Button className="bg-zinc-700 text-white hover:bg-zinc-600" onClick={() => setClockOpen(false)}>Cancel</Button>
+                  <Button onClick={clockIn}>Clock In</Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {projOpen && (
+            <div className="fixed inset-0 z-30 grid place-items-center bg-black/60 p-4">
+              <div className="glass rounded-2xl w-full max-w-md p-6 space-y-4">
+                <div className="text-lg font-semibold text-white">Add Project</div>
+                <Input placeholder="Label" value={projLabel} onChange={(e) => setProjLabel(e.target.value)} />
+                <Input type="date" value={projApproval} onChange={(e) => setProjApproval(e.target.value)} />
+                <div className="flex gap-2">
+                  <select
+                    className="w-1/2 rounded-lg bg-zinc-900/70 border border-zinc-700 px-3 py-2 text-sm"
+                    value={projType}
+                    onChange={(e) => setProjType(e.target.value)}
+                  >
+                    <option value="housing">Housing</option>
+                    <option value="modular">Modular</option>
+                  </select>
+                  <select
+                    className="w-1/2 rounded-lg bg-zinc-900/70 border border-zinc-700 px-3 py-2 text-sm"
+                    value={projCycle}
+                    onChange={(e) => setProjCycle(e.target.value)}
+                  >
+                    <option value="pre2026">Pre-2026</option>
+                    <option value="post2026">Post-2026</option>
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button className="bg-zinc-700 text-white hover:bg-zinc-600" onClick={() => setProjOpen(false)}>Cancel</Button>
+                  <Button onClick={addProject}>Add</Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById("root"));
+    root.render(<ADXSplash />);
+  </script>
+</body>
+</html>
