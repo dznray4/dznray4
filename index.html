@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Digital Hour</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font: 14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0f1115; color:#e9eef6; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 18px; display: grid; gap: 14px; }
+    .card { background:#151a22; border:1px solid #263043; border-radius: 14px; padding: 14px; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    h2 { font-size: 15px; margin: 0 0 10px; color:#b7c4da; font-weight: 600; }
+    label { display:block; margin: 10px 0 6px; color:#b7c4da; }
+    input, textarea, select, button {
+      width: 100%; box-sizing: border-box;
+      background:#0f131b; color:#e9eef6;
+      border: 1px solid #263043; border-radius: 10px;
+      padding: 10px;
+      outline: none;
+    }
+    textarea { min-height: 120px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .btns { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button { cursor: pointer; }
+    button.primary { border-color:#3b6cff; }
+    .small { font-size: 12px; color:#9bb0cc; }
+    .log { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+    .pill { display:inline-block; padding: 3px 8px; border:1px solid #263043; border-radius: 999px; color:#b7c4da; font-size: 12px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#0f131b; border:1px solid #263043; color:#c2d3f2; font-size:12px; }
+    .list { display:grid; gap:10px; margin-top: 10px; }
+    .goal { padding:10px; border:1px solid #263043; border-radius: 10px; background:#0f131b; }
+    .goal-head { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; }
+    .goal-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .goal-title { font-weight:600; }
+    .muted { color:#9bb0cc; }
+    .admin-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .inline { width:auto; }
+    .caps { text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; color:#9bb0cc; }
+    @media (max-width: 760px){ .row,.row3{ grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Digital Hour</h1>
+      <div class="small">
+        A lightweight workspace for sharing calendar events and tracking fitness goals.
+        Use the administrator badge to unlock maintenance tools.
+        If a preview link shows “Not Found,” open <code>index.html</code> directly or run <code>python -m http.server 8000</code> from this folder.
+      </div>
+      <div class="admin-banner">
+        <span class="badge" id="adminStatus">Viewer mode</span>
+        <input class="inline" id="adminKey" placeholder="Admin key" type="password" aria-label="Admin key" />
+        <button class="inline" id="btnAdmin">Enable admin</button>
+        <div class="small">Default key: <code>digital-hour</code></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Calendar share (.ics)</h2>
+
+      <div class="row">
+        <div>
+          <label>Title (SUMMARY)</label>
+          <input id="title" placeholder="Team sync / Appointment / Reminder" />
+        </div>
+        <div>
+          <label>Location (optional)</label>
+          <input id="location" placeholder="Address, room, or URL" />
+        </div>
+      </div>
+
+      <label>Description (optional)</label>
+      <textarea id="description" placeholder="Notes…"></textarea>
+
+      <div class="row3">
+        <div>
+          <label>Start</label>
+          <input id="start" type="datetime-local" />
+        </div>
+        <div>
+          <label>End</label>
+          <input id="end" type="datetime-local" />
+        </div>
+        <div>
+          <label>Time mode</label>
+          <select id="timeMode">
+            <option value="floating">Floating (no timezone)</option>
+            <option value="utc">UTC (Z)</option>
+          </select>
+          <div class="small">Floating works well for local-time events; UTC is safest for sharing.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Organizer email (optional)</label>
+          <input id="organizer" placeholder="name@example.com" />
+        </div>
+        <div>
+          <label>Attendees (optional, comma separated emails)</label>
+          <input id="attendees" placeholder="a@example.com, b@example.com" />
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="primary" id="btnGenerate">Generate ICS</button>
+        <button id="btnDownload" disabled>Download .ics</button>
+        <button id="btnShare" disabled>Share .ics</button>
+        <button id="btnCopy" disabled>Copy ICS text</button>
+      </div>
+
+      <label>Generated ICS</label>
+      <textarea id="icsOut" readonly placeholder="Your .ics will appear here…"></textarea>
+      <div class="small">Need recurring rules? Ask an admin to extend the exporter.</div>
+    </div>
+
+    <div class="card">
+      <h2>Import an .ics</h2>
+      <div class="row">
+        <div>
+          <label>Select .ics file</label>
+          <input id="icsFile" type="file" accept=".ics,text/calendar" />
+        </div>
+        <div>
+          <label>Paste ICS text</label>
+          <textarea id="icsIn" placeholder="Paste BEGIN:VCALENDAR…"></textarea>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button id="btnParse">Parse</button>
+        <button id="btnDownloadImported" disabled>Download imported .ics</button>
+        <button id="btnShareImported" disabled>Share imported .ics</button>
+      </div>
+
+      <label>Parsed summary</label>
+      <div id="parsed" class="small">Nothing parsed yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Fitness goals</h2>
+      <div class="small">Save workouts, wellness targets, and completion notes. Admin mode enables deletion and reset.</div>
+
+      <div class="row3">
+        <div>
+          <label>Goal name</label>
+          <input id="goalName" placeholder="Lunch walk / HIIT / Stretching" />
+        </div>
+        <div>
+          <label>Target value</label>
+          <input id="goalTarget" placeholder="30" type="number" min="0" />
+        </div>
+        <div>
+          <label>Unit</label>
+          <select id="goalUnit">
+            <option value="minutes">minutes</option>
+            <option value="steps">steps</option>
+            <option value="miles">miles</option>
+            <option value="calories">calories</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Category</label>
+          <select id="goalCategory">
+            <option value="cardio">Cardio</option>
+            <option value="strength">Strength</option>
+            <option value="mobility">Mobility</option>
+            <option value="recovery">Recovery</option>
+          </select>
+        </div>
+        <div>
+          <label>Due date (optional)</label>
+          <input id="goalDue" type="date" />
+        </div>
+      </div>
+
+      <label>Notes (optional)</label>
+      <textarea id="goalNotes" placeholder="Warm-up, pace, or reminders"></textarea>
+
+      <div class="btns">
+        <button class="primary" id="btnSaveGoal">Save goal</button>
+        <button id="btnResetGoals" disabled>Reset all (admin)</button>
+      </div>
+
+      <div class="caps">Saved goals</div>
+      <div id="goalsList" class="list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Status</h2>
+      <div id="log" class="log">Ready.</div>
+    </div>
+  </div>
+
+<script>
+  // ---------- Utilities ----------
+  const $ = (id) => document.getElementById(id);
+
+  function log(msg){
+    const el = $("log");
+    el.textContent = `[${new Date().toLocaleString()}] ${msg}\n` + el.textContent;
+  }
+
+  // RFC 5545 line folding: lines should be <= 75 octets; we do a simple char-based fold.
+  function foldLine(line){
+    const limit = 73; // leave room for CRLF
+    if (line.length <= limit) return line;
+    let out = "";
+    while (line.length > limit) {
+      out += line.slice(0, limit) + "\r\n" + " " ;
+      line = line.slice(limit);
+    }
+    out += line;
+    return out;
+  }
+
+  function icsEscape(str){
+    return String(str || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/\n/g, "\\n")
+      .replace(/,/g, "\\,")
+      .replace(/;/g, "\\;");
+  }
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+
+  // Convert datetime-local value to ICS date-time
+  // floating: YYYYMMDDTHHMMSS
+  // utc:      YYYYMMDDTHHMMSSZ
+  function toIcsDateTime(dtLocalValue, mode){
+    if (!dtLocalValue) return "";
+    const d = new Date(dtLocalValue);
+    if (Number.isNaN(d.getTime())) return "";
+    if (mode === "utc") {
+      return (
+        d.getUTCFullYear() +
+        pad2(d.getUTCMonth()+1) +
+        pad2(d.getUTCDate()) + "T" +
+        pad2(d.getUTCHours()) +
+        pad2(d.getUTCMinutes()) +
+        pad2(d.getUTCSeconds()) + "Z"
+      );
+    }
+    // floating uses local clock components
+    return (
+      d.getFullYear() +
+      pad2(d.getMonth()+1) +
+      pad2(d.getDate()) + "T" +
+      pad2(d.getHours()) +
+      pad2(d.getMinutes()) +
+      pad2(d.getSeconds())
+    );
+  }
+
+  function nowStampUtc(){
+    const d = new Date();
+    return (
+      d.getUTCFullYear() +
+      pad2(d.getUTCMonth()+1) +
+      pad2(d.getUTCDate()) + "T" +
+      pad2(d.getUTCHours()) +
+      pad2(d.getUTCMinutes()) +
+      pad2(d.getUTCSeconds()) + "Z"
+    );
+  }
+
+  function makeUid(){
+    const r = Math.random().toString(16).slice(2);
+    return `${Date.now()}-${r}@digital-hour.local`;
+  }
+
+  function buildIcsEvent(data){
+    const lines = [];
+    lines.push("BEGIN:VCALENDAR");
+    lines.push("VERSION:2.0");
+    lines.push("PRODID:-//Digital Hour//EN");
+    lines.push("CALSCALE:GREGORIAN");
+    lines.push("METHOD:PUBLISH");
+    lines.push("BEGIN:VEVENT");
+
+    lines.push(`UID:${makeUid()}`);
+    lines.push(`DTSTAMP:${nowStampUtc()}`);
+
+    const dtStart = toIcsDateTime(data.start, data.timeMode);
+    const dtEnd = toIcsDateTime(data.end, data.timeMode);
+
+    if (dtStart) lines.push(`DTSTART:${dtStart}`);
+    if (dtEnd) lines.push(`DTEND:${dtEnd}`);
+
+    if (data.title) lines.push(`SUMMARY:${icsEscape(data.title)}`);
+    if (data.location) lines.push(`LOCATION:${icsEscape(data.location)}`);
+    if (data.description) lines.push(`DESCRIPTION:${icsEscape(data.description)}`);
+
+    if (data.organizer) {
+      lines.push(`ORGANIZER:mailto:${data.organizer.trim()}`);
+    }
+
+    const attendees = (data.attendees || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    for (const a of attendees) {
+      lines.push(`ATTENDEE:mailto:${a}`);
+    }
+
+    lines.push("END:VEVENT");
+    lines.push("END:VCALENDAR");
+
+    return lines.map(foldLine).join("\r\n") + "\r\n";
+  }
+
+  function downloadText(filename, text, mime="text/calendar;charset=utf-8"){
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function shareTextFile(filename, text){
+    const blob = new Blob([text], { type: "text/calendar" });
+    const file = new File([blob], filename, { type: "text/calendar" });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ title: filename, text: "Calendar invite (.ics)", files: [file] });
+      return true;
+    }
+    if (navigator.share) {
+      await navigator.share({ title: filename, text });
+      return true;
+    }
+    return false;
+  }
+
+  // Very small ICS parser: grabs the first VEVENT and some common props
+  function parseIcs(ics){
+    const lines = ics
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n");
+
+    const unfolded = [];
+    for (const ln of lines) {
+      if (!ln) continue;
+      if (/^[ \t]/.test(ln) && unfolded.length) unfolded[unfolded.length-1] += ln.slice(1);
+      else unfolded.push(ln);
+    }
+
+    let inEvent = false;
+    const event = {};
+    for (const ln of unfolded) {
+      if (ln === "BEGIN:VEVENT") { inEvent = true; continue; }
+      if (ln === "END:VEVENT") { break; }
+      if (!inEvent) continue;
+
+      const [left, ...rest] = ln.split(":");
+      const value = rest.join(":");
+      const key = left.split(";")[0].toUpperCase();
+
+      if (["SUMMARY","LOCATION","DESCRIPTION","DTSTART","DTEND","UID","ORGANIZER"].includes(key)) {
+        event[key] = value;
+      }
+      if (key === "ATTENDEE") {
+        (event.ATTENDEE ||= []).push(value);
+      }
+    }
+    return event;
+  }
+
+  // ---------- Create flow ----------
+  let generatedIcs = "";
+
+  $("btnGenerate").addEventListener("click", () => {
+    const timeMode = $("timeMode").value;
+    const data = {
+      title: $("title").value.trim(),
+      location: $("location").value.trim(),
+      description: $("description").value.trim(),
+      start: $("start").value,
+      end: $("end").value,
+      organizer: $("organizer").value.trim(),
+      attendees: $("attendees").value,
+      timeMode
+    };
+
+    if (!data.title) return log("Add a Title (SUMMARY) first.");
+    if (!data.start || !data.end) return log("Add both Start and End date/time.");
+    if (new Date(data.end) <= new Date(data.start)) return log("End must be after Start.");
+
+    generatedIcs = buildIcsEvent(data);
+    $("icsOut").value = generatedIcs;
+    $("btnDownload").disabled = false;
+    $("btnShare").disabled = false;
+    $("btnCopy").disabled = false;
+    log("ICS generated.");
+  });
+
+  $("btnDownload").addEventListener("click", () => {
+    if (!generatedIcs) return;
+    downloadText("event.ics", generatedIcs);
+    log("Downloaded event.ics");
+  });
+
+  $("btnCopy").addEventListener("click", async () => {
+    if (!generatedIcs) return;
+    await navigator.clipboard.writeText(generatedIcs);
+    log("Copied ICS text to clipboard.");
+  });
+
+  $("btnShare").addEventListener("click", async () => {
+    if (!generatedIcs) return;
+    try {
+      const ok = await shareTextFile("event.ics", generatedIcs);
+      if (ok) log("Share dialog opened.");
+      else {
+        log("Share not supported here. Use Download, then send the .ics file.");
+      }
+    } catch (e) {
+      log("Share failed: " + (e?.message || e));
+    }
+  });
+
+  // ---------- Import flow ----------
+  let importedIcs = "";
+
+  $("icsFile").addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    importedIcs = await f.text();
+    $("icsIn").value = importedIcs;
+    log(`Loaded file: ${f.name}`);
+  });
+
+  $("btnParse").addEventListener("click", () => {
+    const ics = ($("icsIn").value || "").trim();
+    if (!ics) return log("Paste or choose an .ics first.");
+    importedIcs = ics;
+
+    const ev = parseIcs(ics);
+    const lines = [];
+    if (!Object.keys(ev).length) {
+      $("parsed").textContent = "Could not find a VEVENT in this content.";
+      log("Parse failed: no VEVENT found.");
+      return;
+    }
+
+    lines.push(`SUMMARY: ${ev.SUMMARY || "(none)"}`);
+    lines.push(`DTSTART: ${ev.DTSTART || "(none)"}`);
+    lines.push(`DTEND: ${ev.DTEND || "(none)"}`);
+    lines.push(`LOCATION: ${ev.LOCATION || "(none)"}`);
+    lines.push(`ORGANIZER: ${ev.ORGANIZER || "(none)"}`);
+    lines.push(`ATTENDEES: ${(ev.ATTENDEE || []).join(", ") || "(none)"}`);
+    $("parsed").textContent = lines.join("\n");
+
+    $("btnDownloadImported").disabled = false;
+    $("btnShareImported").disabled = false;
+    log("ICS parsed (first VEVENT).");
+  });
+
+  $("btnDownloadImported").addEventListener("click", () => {
+    if (!importedIcs) return;
+    downloadText("imported.ics", importedIcs);
+    log("Downloaded imported.ics");
+  });
+
+  $("btnShareImported").addEventListener("click", async () => {
+    if (!importedIcs) return;
+    try {
+      const ok = await shareTextFile("imported.ics", importedIcs);
+      if (ok) log("Share dialog opened.");
+      else log("Share not supported here. Use Download, then send the .ics file.");
+    } catch (e) {
+      log("Share failed: " + (e?.message || e));
+    }
+  });
+
+  // ---------- Admin mode ----------
+  const ADMIN_KEY = "digital-hour";
+  let isAdmin = false;
+
+  function setAdminMode(on){
+    isAdmin = on;
+    $("adminStatus").textContent = on ? "Administrator" : "Viewer mode";
+    $("adminStatus").style.borderColor = on ? "#3b6cff" : "#263043";
+    $("btnResetGoals").disabled = !on;
+    renderGoals();
+    log(on ? "Admin tools enabled." : "Admin tools disabled.");
+  }
+
+  $("btnAdmin").addEventListener("click", () => {
+    const key = $("adminKey").value.trim();
+    if (key === ADMIN_KEY) return setAdminMode(true);
+    setAdminMode(false);
+    log("Invalid admin key. Staying in viewer mode.");
+  });
+
+  // ---------- Fitness goals ----------
+  const STORAGE_KEY = "digital-hour-goals";
+  let goals = [];
+
+  function loadGoals(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      goals = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      goals = [];
+    }
+  }
+
+  function persistGoals(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+  }
+
+  function clearGoalForm(){
+    $("goalName").value = "";
+    $("goalTarget").value = "";
+    $("goalUnit").value = "minutes";
+    $("goalCategory").value = "cardio";
+    $("goalDue").value = "";
+    $("goalNotes").value = "";
+  }
+
+  function renderGoals(){
+    const container = $("goalsList");
+    container.innerHTML = "";
+    if (!goals.length) {
+      const empty = document.createElement("div");
+      empty.className = "small";
+      empty.textContent = "No goals saved yet.";
+      container.appendChild(empty);
+      return;
+    }
+
+    for (const g of goals) {
+      const item = document.createElement("div");
+      item.className = "goal";
+
+      const head = document.createElement("div");
+      head.className = "goal-head";
+      const title = document.createElement("div");
+      title.className = "goal-title";
+      title.textContent = g.name || "Untitled goal";
+      head.appendChild(title);
+
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = g.completed ? "Completed" : "Active";
+      badge.style.borderColor = g.completed ? "#4ad395" : "#263043";
+      head.appendChild(badge);
+
+      const details = document.createElement("div");
+      details.className = "muted small";
+      const dueText = g.due ? ` · Due ${g.due}` : "";
+      details.textContent = `${g.category} · ${g.target || 0} ${g.unit}${dueText}`;
+
+      const notes = document.createElement("div");
+      notes.className = "small";
+      notes.textContent = g.notes || "No notes added.";
+
+      const actions = document.createElement("div");
+      actions.className = "goal-actions";
+
+      const toggleBtn = document.createElement("button");
+      toggleBtn.textContent = g.completed ? "Mark active" : "Mark complete";
+      toggleBtn.addEventListener("click", () => {
+        g.completed = !g.completed;
+        persistGoals();
+        renderGoals();
+        log(`Goal ${g.completed ? "closed" : "reopened"}: ${g.name}`);
+      });
+      actions.appendChild(toggleBtn);
+
+      if (isAdmin) {
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.addEventListener("click", () => {
+          goals = goals.filter(goal => goal.id !== g.id);
+          persistGoals();
+          renderGoals();
+          log(`Deleted goal: ${g.name}`);
+        });
+        actions.appendChild(delBtn);
+      }
+
+      item.appendChild(head);
+      item.appendChild(details);
+      item.appendChild(notes);
+      item.appendChild(actions);
+      container.appendChild(item);
+    }
+  }
+
+  function saveGoal(){
+    const goal = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      name: $("goalName").value.trim(),
+      target: Number($("goalTarget").value) || 0,
+      unit: $("goalUnit").value,
+      category: $("goalCategory").value,
+      due: $("goalDue").value,
+      notes: $("goalNotes").value.trim(),
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!goal.name) return log("Name your goal before saving.");
+    goals.unshift(goal);
+    persistGoals();
+    clearGoalForm();
+    renderGoals();
+    log(`Saved goal: ${goal.name}`);
+  }
+
+  $("btnSaveGoal").addEventListener("click", saveGoal);
+
+  $("btnResetGoals").addEventListener("click", () => {
+    if (!isAdmin) return log("Admin mode required to reset goals.");
+    if (!confirm("Remove all goals?")) return;
+    goals = [];
+    persistGoals();
+    renderGoals();
+    log("All goals cleared.");
+  });
+
+  // Prefill example times
+  (() => {
+    const now = new Date();
+    const start = new Date(now.getTime() + 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+
+    const toLocalInput = (d) =>
+      `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+    $("start").value = toLocalInput(start);
+    $("end").value = toLocalInput(end);
+  })();
+
+  loadGoals();
+  renderGoals();
+  log("Loaded. Create an event or track a goal.");
+</script>
+</body>
+</html>
